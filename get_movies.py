@@ -40,6 +40,28 @@ def get_movies(theater, date='', *args, **kwargs):
 
     return (movie_names, movie_times)
 
+def get_movies_metrograph(theater, date=''):
+    """ Get movie names and times from Metrograph website
+    """
+    BASE_URL = 'http://metrograph.com/film'
+    # PARAMS = [('d', quote(date))]
+    PARAMS = [('d', date)]
+
+    soup = BeautifulSoup(requests.get(BASE_URL, PARAMS).content, 'lxml')
+
+    movie_names = [movie_div('a')[0].contents[0] for movie_div
+                   in soup('h4', class_='title')]
+    movie_times = [time_div('a') for time_div
+                   in soup('div', class_='showtimes')]
+
+    # filter movies with no future times
+    movie_names, movie_times = ([], [] if not movie_times else
+                                zip(*((name, time[0].contents[0]) for name, time
+                                      in zip(movie_names, movie_times) if time)))
+
+    return (list(movie_names), list(movie_times))
+
+
 def print_movies(theater, movie_names, movie_times):
     """
     :theater: str
@@ -105,26 +127,33 @@ def convert_date(date_in):
         print("I don't recognize that date.. try again ?")
         sys.exit(0)
 
-        d.strftime('%Y-%m-%d')
-
-    return date_out
+    return date_out.strftime('%Y-%m-%d')
+    # return date_out
 
 
 if __name__ == '__main__':
     CITY_IN = sys.argv[1]
 
+    D_ACTIONS = {
+        'metrograph': get_movies_metrograph
+    }
+
     kwargs = {}
     try:
         DATE_IN = sys.argv[2]
-        kwargs['date'] = convert_date(DATE_IN)
+        # kwargs['date'] = convert_date(DATE_IN)
     except(IndexError):
-        pass # default to today
+        # kwargs['date'] = convert_date('today')
+        DATE_IN = 'today'
+        # pass # default to today
+    kwargs['date'] = convert_date(DATE_IN)
 
     theaters = get_theaters(CITY_IN)
     for theater in theaters:
         print('')
         kwargs['theater'] = theater
-        print_movies(theater, *get_movies(**kwargs))
+        action = D_ACTIONS.get(theater, get_movies) # default to google search
+        print_movies(theater, *action(**kwargs))
     print('')
 
     # food = get_dishes(**kwargs)
