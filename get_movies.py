@@ -184,7 +184,10 @@ def convert_date(date_in):
 
 
 if __name__ == '__main__':
-    CITY_IN = sys.argv[1]
+    try:
+        CITY_IN = sys.argv[1]
+    except(IndexError):
+        CITY_IN = 'nyc'
 
     D_ACTIONS = {
         'metrograph': get_movies_metrograph,
