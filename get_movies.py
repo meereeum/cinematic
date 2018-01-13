@@ -8,7 +8,8 @@ from dateutil import parser
 
 
 def get_movies(theater, date='', *args, **kwargs):
-    """
+    """Get movie names and times from Google search
+
     :theater: string
     :date: default to today
     :args: other search terms, e.g. date
@@ -23,18 +24,19 @@ def get_movies(theater, date='', *args, **kwargs):
 
     BASE_URL = 'https://www.google.com/search'
     # PARAMS = [('q', param_str.replace(' ', '+'))]
-    PARAMS = [('q', safe_encode(theater, *args, **kwargs))]
+    PARAMS = {'q': safe_encode(theater, *args, **kwargs)}
 
     soup = BeautifulSoup(requests.get(BASE_URL, PARAMS).content, 'lxml')
+    # TODO check that today (not tomorrow)
 
     time_contents2string = lambda t: ''.join((str(t[0]), *t[1].contents))
 
-    movie_names = [movie_tag('a')[0].contents[0] for movie_tag
+    movie_names = [movie_div('a')[0].contents[0] for movie_div
                    in soup('div', class_='_T5j')]
 
-    movie_times = [[time_contents2string(time_div.contents)
-                    for time_div in time_divs('div', class_='_wxj')]
-                   for time_divs in soup('div', class_='_Oxj')]
+    movie_times = [[time_contents2string(time_div.contents) for time_div
+                    in time_divs('div', class_='_wxj')] for time_divs
+                   in soup('div', class_='_Oxj')]
 
     return (movie_names, movie_times)
 
@@ -61,6 +63,8 @@ def print_movies(theater, movie_names, movie_times):
                           theater.upper(),
                           '_' * underline_space))
     for name, times in zip(movie_names, movie_times):
+        # avoid joining chars in string iterable
+        times = (times if isinstance(times, list) else [times])
         print('{:{}}  |  {}'.format(name, col_space, ', '.join(times)))
 
 
@@ -71,7 +75,7 @@ def get_theaters(city):
     """
     BASE_FNAME = 'theaters'
     with open('_'.join((BASE_FNAME, city)), 'r') as f:
-        theaters = [l.strip() for l in f]
+        theaters = [l.strip().lower() for l in f]
     return theaters
 
 
