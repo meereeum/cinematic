@@ -2,6 +2,7 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 import requests
 import sys
+# from urllib.parse import quote
 
 from bs4 import BeautifulSoup
 from dateutil import parser
@@ -10,8 +11,8 @@ from dateutil import parser
 def get_movies(theater, date='', *args, **kwargs):
     """Get movie names and times from Google search
 
-    :theater: string
-    :date: default to today
+    :theater: str
+    :date: str (yyyy-mm-dd)
     :args: other search terms, e.g. date
     :kwargs: other search terms, e.g. date
     :returns: (list of movie names, list of movie times)
@@ -21,6 +22,8 @@ def get_movies(theater, date='', *args, **kwargs):
         SPACE_CHAR = '+'
         return SPACE_CHAR.join((*args, *kwargs.values())).replace(
             ' ', SPACE_CHAR)
+        # return quote(' '.join((*args, *kwargs.values()))).replace(
+        #     '%20', '+')
 
     BASE_URL = 'https://www.google.com/search'
     # PARAMS = [('q', param_str.replace(' ', '+'))]
@@ -29,19 +32,34 @@ def get_movies(theater, date='', *args, **kwargs):
     soup = BeautifulSoup(requests.get(BASE_URL, PARAMS).content, 'lxml')
     # TODO check that today (not tomorrow)
 
-    time_contents2string = lambda t: ''.join((str(t[0]), *t[1].contents))
+    # check date
+    # date_found = soup('div', class_='_S5j _Y5j')[0]('span')[0].contents[0]
+    # date_found = convert_date(date_found)
 
-    movie_names = [movie_div('a')[0].contents[0] for movie_div
-                   in soup('div', class_='_T5j')]
+    try:
+        date_found = soup('div', class_='_S5j _Y5j')[0]('span')[0].contents[0]
+        assert convert_date(date_found) == date
 
-    movie_times = [[time_contents2string(time_div.contents) for time_div
-                    in time_divs('div', class_='_wxj')] for time_divs
-                   in soup('div', class_='_Oxj')]
+        time_contents2string = lambda t: ''.join((str(t[0]), *t[1].contents))
+
+        movie_names = [movie_div('a')[0].contents[0] for movie_div
+                    in soup('div', class_='_T5j')]
+
+        movie_times = [[time_contents2string(time_div.contents) for time_div
+                        in time_divs('div', class_='_wxj')] for time_divs
+                    in soup('div', class_='_Oxj')]
+    except(AssertionError, IndexError):
+        movie_names, movie_times = [], [] # no movies found for desired date
 
     return (movie_names, movie_times)
 
-def get_movies_metrograph(theater, date=''):
-    """ Get movie names and times from Metrograph website
+
+def get_movies_metrograph(theater, date):
+    """Get movie names and times from Metrograph website
+
+    :theater: string
+    :date: default to today
+    :returns: (list of movie names, list of movie times)
     """
     BASE_URL = 'http://metrograph.com/film'
     # PARAMS = [('d', quote(date))]
@@ -63,7 +81,8 @@ def get_movies_metrograph(theater, date=''):
 
 
 def print_movies(theater, movie_names, movie_times):
-    """
+    """Pretty-print movies
+
     :theater: str
     :movie_names: [strs]
     :movie_times: [strs]
@@ -91,7 +110,8 @@ def print_movies(theater, movie_names, movie_times):
 
 
 def get_theaters(city):
-    """
+    """Get list of theaters by desired `city` from txt file
+
     :city: str
     :returns: list of theaters (str)
     """
@@ -115,7 +135,7 @@ def convert_date(date_in):
     }
 
     try: # if abbrev, uncompress for parser
-        date_out = D_CONVERSIONS[date_in]
+        date_out = D_CONVERSIONS[date_in.lower()]
     except(KeyError):
         date_out = date_in
 
