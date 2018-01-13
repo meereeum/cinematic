@@ -1,4 +1,4 @@
-from collections import OrderedDict
+# from collections import OrderedDict
 from datetime import datetime, timedelta
 import requests
 import sys
@@ -11,7 +11,7 @@ def get_movies(theater, date='', *args, **kwargs):
     """Get movie names and times from Google search
 
     :theater: str
-    :date: str (yyyy-mm-dd)
+    :date: str (yyyy-mm-dd) (default: today)
     :args: other search terms, e.g. date
     :kwargs: other search terms, e.g. date
     :returns: (list of movie names, list of lists of movie times)
@@ -34,24 +34,39 @@ def get_movies(theater, date='', *args, **kwargs):
 
         time_contents2string = lambda t: ''.join((str(t[0]), *t[1].contents))
 
-        # movie_names = [movie_div('a')[0].contents[0] for movie_div
+        # no need to filter - tags only correspond to upcoming movie times
         movie_names = [movie_div.a.contents[0] for movie_div
-                    in soup('div', class_='_T5j')]
-
+                       in soup('div', class_='_T5j')]
         movie_times = [[time_contents2string(time_div.contents) for time_div
                         in time_divs('div', class_='_wxj')] for time_divs
-                    in soup('div', class_='_Oxj')]
+                       in soup('div', class_='_Oxj')]
     except(AssertionError, IndexError):
         movie_names, movie_times = [], [] # no movies found for desired date
 
-    return (movie_names, movie_times)
+    return movie_names, movie_times
+
+
+def filter_movies(movie_names, movie_times):
+    """Filter movies that have no corresponding times
+
+    :movie_names: [str]
+    :movie_times: [[str], [str]]
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    is_empty = lambda lst: (all(map(is_empty, lst)) if isinstance(lst, list)
+                            else False) # check if (nested) list is empty
+
+    movie_names, movie_times = (([], []) if is_empty(movie_times) else
+                                zip(*((name, time) for name, time in
+                                      zip(movie_names, movie_times) if time)))
+    return list(movie_names), list(movie_times)
 
 
 def get_movies_metrograph(theater, date):
     """Get movie names and times from Metrograph website
 
-    :theater: string
-    :date: default to today
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
     :returns: (list of movie names, list of lists of movie times)
     """
     BASE_URL = 'http://metrograph.com/film'
@@ -66,18 +81,16 @@ def get_movies_metrograph(theater, date):
                    in soup('div', class_='showtimes')]
 
     # filter movies with no future times
-    movie_names, movie_times = (([], []) if not movie_times else
-                                zip(*((name, time) for name, time
-                                    in zip(movie_names, movie_times) if time)))
+    movie_names, movie_times = filter_movies(movie_names, movie_times)
 
-    return (list(movie_names), list(movie_times))
+    return movie_names, movie_times
 
 
 def get_movies_videology(theater, date):
     """Get movie names and times from Videology website
 
-    :theater: string
-    :date: default to today
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
     :returns: (list of movie names, list of lists of movie times)
     """
     BASE_URL = 'https://videologybarandcinema.com/events/'
@@ -86,26 +99,21 @@ def get_movies_videology(theater, date):
 
     movie_names = [movie_div.a['title'] for movie_div
                    in soup('h2', class_='tribe-events-list-event-title summary')]
-    # movie_times = [
-    #     time_div.span.contents[0].split(' @ ')[1].replace(' ','') for time_div
-    #     in soup('div', class_='tribe-updated published time-details')]
     movie_datetimes = [
         time_div.span.contents[0] for time_div
         in soup('div', class_='tribe-updated published time-details')]
 
-    # filter movies with no future times
+    # filter past movie times
     now = datetime.now()
     is_past = lambda dt: (
         parser.parse(dt.replace('@', ',')) - now).total_seconds() < 0
-    # list of strs (rather than list of lists)
-    movie_times = [dt.split(' @ ')[1].replace(' ', '')
-                   if not is_past(dt) else '' for dt in movie_datetimes]
+    movie_times = [[dt.split(' @ ')[1].replace(' ', '')] # list of lists
+                   if not is_past(dt) else [] for dt in movie_datetimes]
 
-    movie_names, movie_times = (([], []) if not ''.join(movie_times) else
-                                zip(*((name, [time]) for name, time
-                                      in zip(movie_names, movie_times) if time)))
+    # filter movies with no future times
+    movie_names, movie_times = filter_movies(movie_names, movie_times)
 
-    return (list(movie_names), list(movie_times))
+    return movie_names, movie_times
 
 
 def print_movies(theater, movie_names, movie_times):
@@ -150,7 +158,7 @@ def get_theaters(city):
 
 
 def convert_date(date_in):
-    """Convert string to uniform `datetime` str
+    """Convert string to uniform `datetime` string
 
     :date_in: str
     :returns: str ('YYYY-MM-DD')
@@ -184,25 +192,27 @@ def convert_date(date_in):
 
 
 if __name__ == '__main__':
+    # parse args
     try:
         CITY_IN = sys.argv[1]
     except(IndexError):
         CITY_IN = 'nyc'
 
+    try:
+        DATE_IN = sys.argv[2]
+    except(IndexError):
+        DATE_IN = 'today'
+
+    # do stuff
     D_ACTIONS = {
         'metrograph': get_movies_metrograph,
         'videology': get_movies_videology
     }
 
-    kwargs = {}
-    try:
-        DATE_IN = sys.argv[2]
-    except(IndexError):
-        DATE_IN = 'today'
-    kwargs['date'] = convert_date(DATE_IN)
-
-    theaters = get_theaters(CITY_IN)
-    for theater in theaters:
+    kwargs = {
+        'date': convert_date(DATE_IN)
+    }
+    for theater in get_theaters(CITY_IN):
         print('')
         kwargs['theater'] = theater
         action = D_ACTIONS.get(theater, get_movies) # default to google search
