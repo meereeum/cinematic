@@ -68,6 +68,41 @@ def get_movies_metrograph(theater, date):
     # filter movies with no future times
     movie_names, movie_times = (([], []) if not movie_times else
                                 zip(*((name, time) for name, time
+                                    in zip(movie_names, movie_times) if time)))
+
+    return (list(movie_names), list(movie_times))
+
+
+def get_movies_videology(theater, date):
+    """Get movie names and times from Videology website
+
+    :theater: string
+    :date: default to today
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://videologybarandcinema.com/events/'
+
+    soup = BeautifulSoup(requests.get(BASE_URL + date).content, 'lxml')
+
+    movie_names = [movie_div.a['title'] for movie_div
+                   in soup('h2', class_='tribe-events-list-event-title summary')]
+    # movie_times = [
+    #     time_div.span.contents[0].split(' @ ')[1].replace(' ','') for time_div
+    #     in soup('div', class_='tribe-updated published time-details')]
+    movie_datetimes = [
+        time_div.span.contents[0] for time_div
+        in soup('div', class_='tribe-updated published time-details')]
+
+    # filter movies with no future times
+    now = datetime.now()
+    is_past = lambda dt: (
+        parser.parse(dt.replace('@', ',')) - now).total_seconds() < 0
+    # list of strs (rather than list of lists)
+    movie_times = [dt.split(' @ ')[1].replace(' ', '')
+                   if not is_past(dt) else '' for dt in movie_datetimes]
+
+    movie_names, movie_times = (([], []) if not ''.join(movie_times) else
+                                zip(*((name, [time]) for name, time
                                       in zip(movie_names, movie_times) if time)))
 
     return (list(movie_names), list(movie_times))
@@ -152,7 +187,8 @@ if __name__ == '__main__':
     CITY_IN = sys.argv[1]
 
     D_ACTIONS = {
-        'metrograph': get_movies_metrograph
+        'metrograph': get_movies_metrograph,
+        'videology': get_movies_videology
     }
 
     kwargs = {}
