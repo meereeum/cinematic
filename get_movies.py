@@ -1,5 +1,6 @@
 # from collections import OrderedDict
 from datetime import datetime, timedelta
+import os
 import requests
 import sys
 
@@ -152,8 +153,14 @@ def get_theaters(city):
     :returns: list of theaters (str)
     """
     BASE_FNAME = 'theaters'
-    with open('_'.join((BASE_FNAME, city)), 'r') as f:
-        theaters = [l.strip().lower() for l in f]
+    COMMENT_CHAR = '#'
+
+    dirname = os.path.dirname(os.path.realpath(__file__))
+    fname = '_'.join((BASE_FNAME, city))
+
+    with open(os.path.join(dirname, fname), 'r') as f:
+        theaters = [l.strip().lower() for l in f
+                    if not l.startswith(COMMENT_CHAR)]
     return theaters
 
 
@@ -174,10 +181,8 @@ def convert_date(date_in):
         'fri': 'friday'
     }
 
-    try: # if abbrev, uncompress for parser
-        date_out = D_CONVERSIONS[date_in.lower()]
-    except(KeyError):
-        date_out = date_in
+    # if abbrev, uncompress for parser
+    date_out = D_CONVERSIONS.get(date_in.lower(), date_in)
 
     try: # if str, convert to datetime
         date_out = parser.parse(date_out)
