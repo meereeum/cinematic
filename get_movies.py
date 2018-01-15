@@ -7,6 +7,8 @@ import sys
 from bs4 import BeautifulSoup
 from dateutil import parser
 
+from secrets import API_KEY
+
 
 def get_movies(theater, date='', *args, **kwargs):
     """Get movie names and times from Google search
@@ -117,6 +119,45 @@ def get_movies_videology(theater, date):
     return movie_names, movie_times
 
 
+def get_ratings(movie_name):
+    """Get movie ratings (IMDb, Metacritic, Rotten Tomatoes)
+
+    :movie_name: str
+    :returns: dict { ratings site: float(rating) }
+    """
+    BASE_URL = 'http://www.omdbapi.com'
+    PARAMS = {
+        't': movie_name,
+        'type': 'movie',
+        'apikey': API_KEY
+    }
+
+    def rating2float(rating_str):
+        """Movie rating (percent or fraction) -> float
+
+        :rating_str: str
+        :returns: float
+        """
+        a, b = (float(x) for x in rating_str.replace('%', '/100').split('/'))
+        return a / b
+
+    movie_json = requests.get(BASE_URL, PARAMS).json()
+    # d_ratings = {d['Source']: d['Value'] for d in movie_json['Ratings']}
+    # d_ratings = {d['Source']: rating2float(d['Value'])
+    #              for d in movie_json['Ratings']}
+    # try:
+    #     d_ratings = {d['Source']: rating2float(d['Value'])
+    #                  for d in movie_json['Ratings']}
+    # except(KeyError): # no ratings found
+    #     import IPython; IPython.embed()
+
+    d_ratings = ({d['Source']: rating2float(d['Value'])
+                  for d in movie_json['Ratings']}
+                 if movie_json['Response'] == 'True' else {})
+
+    return d_ratings
+
+
 def print_movies(theater, movie_names, movie_times):
     """Pretty-print movies
 
@@ -217,9 +258,22 @@ if __name__ == '__main__':
     kwargs = {
         'date': convert_date(DATE_IN)
     }
+    d_ratings = {}
     for theater in get_theaters(CITY_IN):
         print('')
         kwargs['theater'] = theater
         action = D_ACTIONS.get(theater, get_movies) # default to google search
-        print_movies(theater, *action(**kwargs))
+        # print_movies(theater, *action(**kwargs))
+
+        movie_names, movie_times = action(**kwargs)
+
+        movie_rating_ds = [d_ratings.get(movie_name, # reuse if already cached
+                                         get_ratings(movie_name))
+                           for movie_name in movie_names]
+        d_ratings.update(zip(movie_names, movie_rating_ds)) # update cache
+
+        # ratings_rt = [d.get('Rotten Tomatoes', None)
+        movie_ratings = [d.get('Rotten Tomatoes',
+                               d.get('Internet Movie Database', None))
+                         for d in movie_rating_ds]
     print('')
