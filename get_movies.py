@@ -1,5 +1,6 @@
 # from collections import OrderedDict
 from datetime import datetime, timedelta
+from itertools import zip_longest
 import os
 import requests
 import sys
@@ -7,6 +8,7 @@ import sys
 from bs4 import BeautifulSoup
 from dateutil import parser
 
+# from get_ratings import get_ratings
 from secrets import API_KEY
 
 
@@ -187,6 +189,64 @@ def print_movies(theater, movie_names, movie_times):
         print('{:{}}  |  {}'.format(name, col_space, ', '.join(times)))
 
 
+def print_movies_ratings(theater, movie_names, movie_times, movie_ratings=[]):
+    """Pretty-print movies
+
+    :theater: str
+    :movie_names: [strs]
+    :movie_times: [strs]
+    :movie_ratings: [floats]
+    """
+    TIME_SPACE = len('xx:xxpm')
+    RATING_SPACE = len('(xx%)')
+    SPACER = 2
+
+    SEP_CHAR = '|'
+    UNDERLINE_CHAR = '_'
+
+    extra_space = SPACER * 3 + len(SEP_CHAR) + TIME_SPACE #+ RATING_SPACE
+    extra_space = (extra_space + RATING_SPACE) if movie_ratings else extra_space
+
+    theater_space = len(theater)
+    try:
+        col_space = len(max(movie_names, key=len))
+    except(ValueError): # search found no movies
+        print('skipping {}...'.format(theater))
+        return
+
+    round_to_even = lambda x: int(x / 2) * 2
+    underline_space = round_to_even(col_space + extra_space -
+                                    theater_space) + theater_space
+
+    print('{:{}^{}}'.format(theater.upper(), UNDERLINE_CHAR, underline_space))
+    # for name, times, rating in zip(movie_names, movie_times, movie_ratings):
+
+    NULL = 47
+    for name, times, rating in zip_longest(movie_names, movie_times, movie_ratings,
+                                           fillvalue=NULL):
+        t_rating_fmt = ((rating, '.0%') if rating is not None else
+                        ('?', '^3')) # tuple (str, strfmt)
+        spacer = (SPACER - 1) if rating == 1. else SPACER
+        t_spacer = ('', spacer)
+
+        rating_str = ('({:{}}){:{}}'.format(*t_rating_fmt, *t_spacer)
+                      if rating != NULL else '')
+
+        # print('({:{}}){:{}}{:{}}{:^{}}{}'.format(*t_rating_fmt,
+        #                                          *t_spacer,
+                                                 # name,
+                                                 # col_space,
+                                                 # SEP_CHAR,
+                                                 # SPACER * 2 + len(SEP_CHAR),
+                                                 # ', '.join(times)))
+        print('{}{:{}}{:^{}}{}'.format(rating_str,
+                                       name, col_space,
+                                       SEP_CHAR, SPACER * 2 + len(SEP_CHAR),
+                                       ', '.join(times)))
+        # print('({:{}}){}{:{}}  |  {}'.format(*t_rating_fmt, *t_spname, col_space,
+        #                                      ', '.join(times)))
+
+
 def get_theaters(city):
     """Get list of theaters by desired `city` from txt file
 
@@ -276,4 +336,6 @@ if __name__ == '__main__':
         movie_ratings = [d.get('Rotten Tomatoes',
                                d.get('Internet Movie Database', None))
                          for d in movie_rating_ds]
+        # print_movies_ratings(theater, movie_names, movie_times, ratings_rt)
+        print_movies_ratings(theater, movie_names, movie_times, movie_ratings)
     print('')
