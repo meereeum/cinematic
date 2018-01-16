@@ -8,17 +8,31 @@ import sys
 from bs4 import BeautifulSoup
 from dateutil import parser
 
-# from get_ratings import get_ratings
 from secrets import API_KEY
 
 
-def get_movies(theater, date='', *args, **kwargs):
+def get_movies(theater, date):
+    """Get movie names and times
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    D_ACTIONS = {
+        'metrograph': get_movies_metrograph,
+        'videology': get_movies_videology
+    }
+    action = D_ACTIONS.get(theater, get_movies_google) # default to google search
+    return action(theater, date)
+
+
+def get_movies_google(theater, date):
     """Get movie names and times from Google search
 
     :theater: str
     :date: str (yyyy-mm-dd) (default: today)
-    :args: other search terms, e.g. date
-    :kwargs: other search terms, e.g. date
+    # :args: other search terms, e.g. date
+    # :kwargs: other search terms, e.g. date
     :returns: (list of movie names, list of lists of movie times)
     """
     # param_str = ' '.join((theater, *args, *kwargs.values()))
@@ -28,7 +42,8 @@ def get_movies(theater, date='', *args, **kwargs):
             ' ', SPACE_CHAR)
 
     BASE_URL = 'https://www.google.com/search'
-    PARAMS = {'q': safe_encode(theater, date, *args, **kwargs)}
+    PARAMS = {'q': safe_encode(theater, date)}
+    # PARAMS = {'q': safe_encode(theater, date, *args, **kwargs)}
 
     soup = BeautifulSoup(requests.get(BASE_URL, PARAMS).content, 'lxml')
 
@@ -121,7 +136,7 @@ def get_movies_videology(theater, date):
     return movie_names, movie_times
 
 
-def get_ratings(movie_name):
+def get_ratings_per_movie(movie_name):
     """Get movie ratings (IMDb, Metacritic, Rotten Tomatoes)
 
     :movie_name: str
@@ -160,36 +175,28 @@ def get_ratings(movie_name):
     return d_ratings
 
 
-def print_movies(theater, movie_names, movie_times):
-    """Pretty-print movies
+def get_ratings(movie_names, d_cached):
+    """Get movie ratings corresponding to movies, using cached review lookups
 
-    :theater: str
     :movie_names: [strs]
-    :movie_times: [strs]
+    :d_cached: dictionary of cached ratings {'name': float(rating)}
+    :returns: (list of ratings, updated dictionary)
     """
-    TIME_SPACE = 7
-    EXTRA_SPACE = 7
+    movie_rating_ds = [d_cached.get(movie_name, # reuse if already cached
+                                    get_ratings_per_movie(movie_name))
+                       for movie_name in movie_names]
+    movie_ratings = [d.get('Rotten Tomatoes', # 1st choice review
+                           d.get('Internet Movie Database', -1)) # fallbacks
+                     for d in movie_rating_ds]
 
-    theater_space = len(theater)
-    try:
-        col_space = len(max(movie_names, key=len))
-    except(ValueError): # search found no movies
-        print('skipping {}...'.format(theater))
-        return
+    d_cached.update(zip(movie_names, movie_rating_ds)) # update cache
 
-    underline_space = int(
-        ((col_space + TIME_SPACE + EXTRA_SPACE) - theater_space) / 2)
-
-    print('{}{}{}'.format('_' * underline_space,
-                          theater.upper(),
-                          '_' * underline_space))
-    for name, times in zip(movie_names, movie_times):
-        # avoid joining chars in string iterable
-        times = (times if isinstance(times, list) else [times])
-        print('{:{}}  |  {}'.format(name, col_space, ', '.join(times)))
+    return movie_ratings, d_cached
 
 
-def print_movies_ratings(theater, movie_names, movie_times, movie_ratings=[]):
+
+
+def print_movies(theater, movie_names, movie_times, movie_ratings=[]):
     """Pretty-print movies
 
     :theater: str
@@ -294,7 +301,6 @@ def convert_date(date_in):
         sys.exit(0)
 
     return date_out.strftime('%Y-%m-%d')
-    # return date_out
 
 
 if __name__ == '__main__':
@@ -310,32 +316,23 @@ if __name__ == '__main__':
         DATE_IN = 'today'
 
     # do stuff
-    D_ACTIONS = {
-        'metrograph': get_movies_metrograph,
-        'videology': get_movies_videology
-    }
-
     kwargs = {
         'date': convert_date(DATE_IN)
     }
-    d_ratings = {}
+    d_cached = {}
     for theater in get_theaters(CITY_IN):
         print('')
         kwargs['theater'] = theater
-        action = D_ACTIONS.get(theater, get_movies) # default to google search
         # print_movies(theater, *action(**kwargs))
 
-        movie_names, movie_times = action(**kwargs)
+        # movie_names, movie_times = action(**kwargs)
+        movie_names, movie_times = get_movies(**kwargs)
 
-        movie_rating_ds = [d_ratings.get(movie_name, # reuse if already cached
-                                         get_ratings(movie_name))
-                           for movie_name in movie_names]
-        d_ratings.update(zip(movie_names, movie_rating_ds)) # update cache
+        if WITH_RATINGS or FILTER_BY > 0:
+            movie_ratings, d_cached = get_ratings(movie_names, d_cached)
+        else:
+            movie_ratings = []
 
-        # ratings_rt = [d.get('Rotten Tomatoes', None)
-        movie_ratings = [d.get('Rotten Tomatoes',
-                               d.get('Internet Movie Database', None))
-                         for d in movie_rating_ds]
-        # print_movies_ratings(theater, movie_names, movie_times, ratings_rt)
-        print_movies_ratings(theater, movie_names, movie_times, movie_ratings)
+        print_movies(theater, movie_names, movie_times, movie_ratings)
+
     print('')
