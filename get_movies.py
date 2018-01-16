@@ -12,6 +12,11 @@ from dateutil import parser
 from secrets import API_KEY
 
 
+WITH_RATINGS = True
+SORTED = True
+FILTER_BY = 0.85 # 0
+
+
 def get_movies(theater, date):
     """Get movie names and times
 
@@ -195,15 +200,29 @@ def get_ratings(movie_names, d_cached):
     return movie_ratings, d_cached
 
 
+def filter_by_rating(movie_names, movie_times, movie_ratings, threshold=0):
+    """Filter movies by minimum rating
+
+    :movie_names: [strs]
+    :movie_times: [[strs]]
+    :movie_ratings: [floats]
+    :threshold: float (0 - 1)
+    :returns: tuple(movie names, movie times, movie ratings)
+    """
+    return (zip(*((name, time, rating) for name, time, rating in
+                  zip(movie_names, movie_times, movie_ratings)
+                  if rating >= threshold or rating < 0)) # above threshold or rating not found
+            if threshold > 0 else ([], [], []))
 
 
-def print_movies(theater, movie_names, movie_times, movie_ratings=[]):
+def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=False):
     """Pretty-print movies
 
     :theater: str
     :movie_names: [strs]
     :movie_times: [strs]
     :movie_ratings: [floats]
+    :sorted_: sort movies by descending rating ?
     """
     SPACER = 2
 
@@ -241,6 +260,9 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[]):
     movie_strs = [to_pprint_str(name, times, rating, with_rating=with_rating)
                   for name, times, rating in zip_longest(
                           movie_names, movie_times, movie_ratings)]
+    movie_strs = ([movie_str for _, movie_str in sorted(
+        zip(movie_ratings, movie_strs), reverse=True)] # sort best -> worst
+                  if sorted_ else movie_strs)
 
     round_up_to_even = lambda x: math.ceil(x / 2) * 2 # closest even int (>=)
     underline_space = round_up_to_even(len(max(movie_strs, key=len)) -
@@ -330,6 +352,9 @@ if __name__ == '__main__':
         else:
             movie_ratings = []
 
-        print_movies(theater, movie_names, movie_times, movie_ratings)
+        print_movies(theater, *filter_by_rating(
+            movie_names, movie_times, movie_ratings, FILTER_BY), # TODO what if filter but not print ?
+                     sorted_=SORTED)
+        # print_movies(theater, movie_names, movie_times, movie_ratings, sorted_=SORTED)
 
     print('')
