@@ -1,6 +1,7 @@
 # from collections import OrderedDict
 from datetime import datetime, timedelta
 from itertools import zip_longest
+import math
 import os
 import requests
 import sys
@@ -204,15 +205,10 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[]):
     :movie_times: [strs]
     :movie_ratings: [floats]
     """
-    TIME_SPACE = len('xx:xxpm')
-    RATING_SPACE = len('(xx%)')
     SPACER = 2
 
     SEP_CHAR = '|'
     UNDERLINE_CHAR = '_'
-
-    extra_space = SPACER * 3 + len(SEP_CHAR) + TIME_SPACE #+ RATING_SPACE
-    extra_space = (extra_space + RATING_SPACE) if movie_ratings else extra_space
 
     theater_space = len(theater)
     try:
@@ -221,37 +217,38 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[]):
         print('skipping {}...'.format(theater))
         return
 
-    round_to_even = lambda x: int(x / 2) * 2
-    underline_space = round_to_even(col_space + extra_space -
-                                    theater_space) + theater_space
+    def to_pprint_str(name, times, rating, with_rating=True):
+        if with_rating:
+            # tuple (str, strfmt)
+            t_rating_fmt = ((rating, '.0%') if rating > 0 else
+                            ('?', '^3')) # no rating found
+            # TODO different fmt for IMDb ?
 
-    print('{:{}^{}}'.format(theater.upper(), UNDERLINE_CHAR, underline_space))
-    # for name, times, rating in zip(movie_names, movie_times, movie_ratings):
+            # adjust spacing for "100%"
+            spacer = (SPACER - 1) if rating == 1. else SPACER
+            t_spacer = ('', spacer)
 
-    NULL = 47
-    for name, times, rating in zip_longest(movie_names, movie_times, movie_ratings,
-                                           fillvalue=NULL):
-        t_rating_fmt = ((rating, '.0%') if rating is not None else
-                        ('?', '^3')) # tuple (str, strfmt)
-        spacer = (SPACER - 1) if rating == 1. else SPACER
-        t_spacer = ('', spacer)
+            rating_str = '({:{}}){:{}}'.format(*t_rating_fmt, *t_spacer)
+        else:
+            rating_str = ''
 
-        rating_str = ('({:{}}){:{}}'.format(*t_rating_fmt, *t_spacer)
-                      if rating != NULL else '')
+        return '{}{:{}}{:^{}}{}'.format(rating_str,
+                                        name, col_space,
+                                        SEP_CHAR, SPACER * 2 + len(SEP_CHAR),
+                                        ', '.join(times))
 
-        # print('({:{}}){:{}}{:{}}{:^{}}{}'.format(*t_rating_fmt,
-        #                                          *t_spacer,
-                                                 # name,
-                                                 # col_space,
-                                                 # SEP_CHAR,
-                                                 # SPACER * 2 + len(SEP_CHAR),
-                                                 # ', '.join(times)))
-        print('{}{:{}}{:^{}}{}'.format(rating_str,
-                                       name, col_space,
-                                       SEP_CHAR, SPACER * 2 + len(SEP_CHAR),
-                                       ', '.join(times)))
-        # print('({:{}}){}{:{}}  |  {}'.format(*t_rating_fmt, *t_spname, col_space,
-        #                                      ', '.join(times)))
+    with_rating = (movie_ratings != [])
+    movie_strs = [to_pprint_str(name, times, rating, with_rating=with_rating)
+                  for name, times, rating in zip_longest(
+                          movie_names, movie_times, movie_ratings)]
+
+    round_up_to_even = lambda x: math.ceil(x / 2) * 2 # closest even int (>=)
+    underline_space = round_up_to_even(len(max(movie_strs, key=len)) -
+                                       theater_space) + theater_space
+    theater_str = '{:{}^{}}'.format(theater.upper(), UNDERLINE_CHAR, underline_space)
+
+    print(theater_str); print('\n'.join(movie_strs))
+    # print('\n'.join([theater_str] + movie_strs))
 
 
 def get_theaters(city):
