@@ -1,4 +1,4 @@
-# from collections import OrderedDict
+import argparse
 from datetime import datetime, timedelta
 from itertools import zip_longest
 import math
@@ -7,14 +7,9 @@ import requests
 import sys
 
 from bs4 import BeautifulSoup
-from dateutil import parser
+from dateutil import parser as dparser
 
 from secrets import API_KEY
-
-
-WITH_RATINGS = True
-SORTED = True
-FILTER_BY = 0.85 # 0
 
 
 def get_movies(theater, date):
@@ -132,7 +127,7 @@ def get_movies_videology(theater, date):
     # filter past movie times
     now = datetime.now()
     is_past = lambda dt: (
-        parser.parse(dt.replace('@', ',')) - now).total_seconds() < 0
+        dparser.parse(dt.replace('@', ',')) - now).total_seconds() < 0
     movie_times = [[dt.split(' @ ')[1].replace(' ', '')] # list of lists
                    if not is_past(dt) else [] for dt in movie_datetimes]
 
@@ -167,12 +162,6 @@ def get_ratings_per_movie(movie_name):
     movie_json = requests.get(BASE_URL, PARAMS).json()
     # d_ratings = {d['Source']: d['Value'] for d in movie_json['Ratings']}
     # d_ratings = {d['Source']: rating2float(d['Value'])
-    #              for d in movie_json['Ratings']}
-    # try:
-    #     d_ratings = {d['Source']: rating2float(d['Value'])
-    #                  for d in movie_json['Ratings']}
-    # except(KeyError): # no ratings found
-    #     import IPython; IPython.embed()
 
     d_ratings = ({d['Source']: rating2float(d['Value'])
                   for d in movie_json['Ratings']}
@@ -315,7 +304,7 @@ def convert_date(date_in):
     date_out = D_CONVERSIONS.get(date_in.lower(), date_in)
 
     try: # if str, convert to datetime
-        date_out = parser.parse(date_out)
+        date_out = dparser.parse(date_out)
     except(AttributeError, TypeError): # already datetime
         date_out = date_out
     except(ValueError):
@@ -325,39 +314,51 @@ def convert_date(date_in):
     return date_out.strftime('%Y-%m-%d')
 
 
+def get_parser():
+    # defaults
+    CITY = 'nyc'
+    DATE = 'today'
+
+    parser = argparse.ArgumentParser(description='~ cinema from the terminal ~')
+    parser.add_argument('city', nargs='?', default=CITY,
+                        # help='corresponding to "theater_$CITY" (default: nyc)')
+                        help='(default: nyc)')
+    parser.add_argument('date', nargs='?', default=DATE,
+                        # help='"1/18" or "tom" or .. (default: today)')
+                        help='(default: today)')
+    parser.add_argument('--simple', action='store_true',
+                        help='display without ratings? (default: false)')
+    parser.add_argument('--sorted', action='store_true',
+                        help='sort by rating? (default: false)')
+    parser.add_argument('--filter-by', type=float, default=0,
+                        help='minimum rating threshold (default: 0)')
+    return parser
+
+
 if __name__ == '__main__':
     # parse args
-    try:
-        CITY_IN = sys.argv[1]
-    except(IndexError):
-        CITY_IN = 'nyc'
-
-    try:
-        DATE_IN = sys.argv[2]
-    except(IndexError):
-        DATE_IN = 'today'
+    args = get_parser().parse_args()
 
     # do stuff
     kwargs = {
-        'date': convert_date(DATE_IN)
+        'date': convert_date(args.date)
     }
     d_cached = {}
-    for theater in get_theaters(CITY_IN):
+    for theater in get_theaters(args.city):
         print('')
         kwargs['theater'] = theater
-        # print_movies(theater, *action(**kwargs))
 
-        # movie_names, movie_times = action(**kwargs)
         movie_names, movie_times = get_movies(**kwargs)
 
-        if WITH_RATINGS or FILTER_BY > 0:
+        if args.filter_by > 0 or not args.simple:
             movie_ratings, d_cached = get_ratings(movie_names, d_cached)
         else:
             movie_ratings = []
 
-        print_movies(theater, *filter_by_rating(
-            movie_names, movie_times, movie_ratings, FILTER_BY), # TODO what if filter but not print ?
-                     sorted_=SORTED)
-        # print_movies(theater, movie_names, movie_times, movie_ratings, sorted_=SORTED)
+        print_movies(theater, *filter_by_rating(movie_names,
+                                                movie_times,
+                                                movie_ratings,
+                                                args.filter_by),
+                     sorted_=args.sorted)
 
     print('')
