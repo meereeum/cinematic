@@ -209,10 +209,13 @@ def filter_by_rating(movie_names, movie_times, movie_ratings, threshold=0):
     :threshold: float (0 - 1)
     :returns: tuple(movie names, movie times, movie ratings)
     """
-    return (zip(*((name, time, rating) for name, time, rating in
-                  zip(movie_names, movie_times, movie_ratings)
-                  if rating >= threshold or rating < 0)) # above threshold or rating not found
-            if threshold > 0 else ([], [], []))
+    tuple_in = (movie_names, movie_times, movie_ratings)
+    tuple_out = (zip(*((name, time, rating) for name, time, rating in zip(*tuple_in)
+                       if rating >= threshold or rating < 0)) # only if above threshold or rating not found
+                 if threshold > 0 else tuple_in) # else, don't bother to filter
+    tuple_out = tuple(tuple_out)
+    tuple_out = (tuple_out if tuple_out else ((), (), ())) # don't return empty tuple if all filtered out
+    return tuple_out
 
 
 def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=False):
