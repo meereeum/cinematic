@@ -234,12 +234,7 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
             t_rating_fmt = ((rating, '.0%') if rating > 0 else
                             ('?', '^3')) # no rating found
             # TODO different fmt for IMDb ?
-
-            # adjust spacing for "100%"
-            spacer = (SPACER - 1) if rating == 1. else SPACER
-            t_spacer = ('', spacer)
-
-            rating_str = '({:{}}){:{}}'.format(*t_rating_fmt, *t_spacer)
+            rating_str = '{:7}'.format('({:{}})'.format(*t_rating_fmt))
         else:
             rating_str = ''
 
