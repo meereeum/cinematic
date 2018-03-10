@@ -1,8 +1,9 @@
 import argparse
 from datetime import datetime, timedelta
-from itertools import zip_longest
+from itertools import chain, zip_longest
 import math
 import os
+import re
 import requests
 import sys
 
@@ -20,6 +21,7 @@ def get_movies(theater, date):
     :returns: (list of movie names, list of lists of movie times)
     """
     D_ACTIONS = {
+        'film noir': get_movies_film_noir,
         'metrograph': get_movies_metrograph,
         'videology': get_movies_videology
     }
@@ -64,6 +66,10 @@ def get_movies_google(theater, date):
     except(AssertionError, IndexError):
         movie_names, movie_times = [], [] # no movies found for desired date
 
+    # TODO currently fails if multiple time lists per movie, e.g. 70mm & standard
+    # if len(movie_names) != len(movie_times):
+    #     import IPython; IPython.embed()
+
     return movie_names, movie_times
 
 
@@ -81,6 +87,25 @@ def filter_movies(movie_names, movie_times):
                                 zip(*((name, time) for name, time in
                                       zip(movie_names, movie_times) if time)))
     return list(movie_names), list(movie_times)
+
+
+def filter_past(datetimes, cutoff=None):
+    """Filter datetimes before cutoff
+
+    :datetimes: list of strs ("date @ time")
+    :cutoff: datetime str (default: now)
+    :returns: list of lists of strs (or emptylist if past)
+    """
+    cutoff = datetime.now() if cutoff is None else dparser.parse(cutoff)
+
+    is_past = lambda dt: (
+        dparser.parse(dt.replace('@', ',')) - cutoff).total_seconds() < 0
+
+    # date @ time -> time
+    strftime = lambda dt: dt.split(' @ ')[1].replace(' ', '').lower()
+
+    return [[strftime(dt)] # list of lists of "times"
+            if not is_past(dt) else [] for dt in datetimes]
 
 
 def get_movies_metrograph(theater, date):
@@ -120,16 +145,42 @@ def get_movies_videology(theater, date):
 
     movie_names = [movie_div.a['title'] for movie_div
                    in soup('h2', class_='tribe-events-list-event-title summary')]
-    movie_datetimes = [
+
+    # get times filtered by past
+    movie_datetimes = [ # date @ time
         time_div.span.contents[0] for time_div
         in soup('div', class_='tribe-updated published time-details')]
+    movie_times = filter_past(movie_datetimes)
 
-    # filter past movie times
-    now = datetime.now()
-    is_past = lambda dt: (
-        dparser.parse(dt.replace('@', ',')) - now).total_seconds() < 0
-    movie_times = [[dt.split(' @ ')[1].replace(' ', '')] # list of lists
-                   if not is_past(dt) else [] for dt in movie_datetimes]
+    # filter movies with no future times
+    movie_names, movie_times = filter_movies(movie_names, movie_times)
+
+    return movie_names, movie_times
+
+
+def get_movies_film_noir(theater, date):
+    """Get movie names and times from Film Noir website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://www.filmnoircinema.com/program'
+
+    soup = BeautifulSoup(requests.get(BASE_URL).content, 'lxml')
+
+    date = dparser.parse(date)
+    movie_divs = soup('a', class_='eventlist-title-link',
+                      href=re.compile('/program/{}/{}/{}/'.format(
+                          date.year, date.month, date.day))) # no zero-padding
+    movie_names = [movie_div.text for movie_div in movie_divs]
+
+    # get times filtered by past
+    movie_datetimes = chain.from_iterable((
+        [' @ '.join((time_div['datetime'], time_div.text)) for time_div in
+         movie_div.next.next.next('time', class_='event-time-12hr-start')]
+        for movie_div in movie_divs))
+    movie_times = filter_past(movie_datetimes)
 
     # filter movies with no future times
     movie_names, movie_times = filter_movies(movie_names, movie_times)
@@ -242,6 +293,10 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
                                         name, col_space,
                                         SEP_CHAR, SPACER * 2 + len(SEP_CHAR),
                                         ', '.join(times))
+
+    # until fix for multiple times per movie
+    if len(movie_names) != len(movie_times):
+        movie_times = (('?') for _ in movie_names)
 
     with_rating = (movie_ratings != [])
     movie_strs = [to_pprint_str(name, times, rating, with_rating=with_rating)
