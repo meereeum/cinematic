@@ -366,16 +366,18 @@ def convert_date(date_in):
 
 def get_parser():
     # defaults
-    CITY = 'nyc'
-    DATE = 'today'
+    # CITY = 'nyc'
+    # DATE = 'today'
 
-    parser = argparse.ArgumentParser(description='~ cinema from the terminal ~')
-    parser.add_argument('city', nargs='?', default=CITY,
-                        # help='corresponding to "theater_$CITY" (default: nyc)')
-                        help='(default: nyc)')
-    parser.add_argument('date', nargs='?', default=DATE,
-                        # help='"1/18" or "tom" or .. (default: today)')
-                        help='(default: today)')
+    parser = argparse.ArgumentParser(description=(''))
+    parser.add_argument('city and/or date', nargs='*', default=[''],
+                        help='(default: nyc today)')
+    # parser.add_argument('city', nargs='?', default=CITY,
+    #                     # help='corresponding to "theater_$CITY" (default: nyc)')
+    #                     help='(default: nyc)')
+    # parser.add_argument('date', nargs='?', default=DATE,
+    #                     # help='"1/18" or "tom" or .. (default: today)')
+    #                     help='(default: today)')
     parser.add_argument('--simple', action='store_true',
                         help='display without ratings? (default: false)')
     parser.add_argument('--sorted', action='store_true',
@@ -386,15 +388,34 @@ def get_parser():
 
 
 if __name__ == '__main__':
+    # defaults
+    CITY = 'nyc'
+    DATE = 'today'
+
     # parse args
     args = get_parser().parse_args()
 
+    city_date = args.__getattribute__('city and/or date') # b/c spaces
+    city_date.append(DATE) # pad with default
+    maybe_city, maybe_date, *_ = city_date
+
+    try:
+        city = maybe_city
+        theaters = get_theaters(city)
+        date = maybe_date
+    except(FileNotFoundError): # date rather than city
+        city = CITY
+        theaters = get_theaters(city)
+        date = maybe_city if maybe_city else DATE
+
     # do stuff
     kwargs = {
-        'date': convert_date(args.date)
+        # 'date': convert_date(args.date)
+        'date': convert_date(date)
     }
     d_cached = {}
-    for theater in get_theaters(args.city):
+    # for theater in get_theaters(args.city):
+    for theater in theaters:
         print('')
         kwargs['theater'] = theater
 
