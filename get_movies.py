@@ -7,7 +7,7 @@ import re
 import requests
 import sys
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, element
 from dateutil import parser as dparser
 
 from secrets import API_KEY
@@ -71,8 +71,28 @@ def get_movies_google(theater, date):
         movie_names, movie_times = [], [] # no movies found for desired date
 
     # TODO currently fails if multiple time lists per movie, e.g. 70mm & standard
-    # if len(movie_names) != len(movie_times):
-    #     import IPython; IPython.embed()
+    if len(movie_names) != len(movie_times): # multiple timelists per movie
+        # import IPython; IPython.embed()
+
+        n = 0
+        n_timelists_per_movie = []
+        types_per_movie = []
+
+        for elem in soup('div', class_='_T5j')[0].nextGenerator(): # after 1st movie
+            if isinstance(elem, element.Tag):
+                if elem.name == 'div' and elem.get('class') == ['_Oxj']: # time list
+                    types_per_movie.append(elem.previous.previous.string) # standard, imax, 3d, ..
+                    n += 1
+                elif elem.name == 'td' and elem.get('class') == ['_V5j']: # movie divider
+                    n_timelists_per_movie.append(n)
+                    n = 0
+        n_timelists_per_movie.append(n)
+
+        movie_names = list(chain.from_iterable(
+            [name] * n for name, n in zip(movie_names, n_timelists_per_movie)))
+        movie_times = [(times if movie_type == 'Standard' else
+                        times + ['[ {} ]'.format(movie_type)])
+                    for times, movie_type in zip(movie_times, types_per_movie)]
 
     return movie_names, movie_times
 
@@ -276,6 +296,8 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
     SEP_CHAR = '|'
     UNDERLINE_CHAR = '_'
 
+    PATTERN = re.compile(', \[') # reformat movie type in timelist
+
     theater_space = len(theater)
     try:
         col_space = len(max(movie_names, key=len))
@@ -293,10 +315,13 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
         else:
             rating_str = ''
 
+        time_str = re.sub(PATTERN, '  [', ', '.join(times))
+
         return '{}{:{}}{:^{}}{}'.format(rating_str,
                                         name, col_space,
                                         SEP_CHAR, SPACER * 2 + len(SEP_CHAR),
-                                        ', '.join(times))
+                                        # ', '.join(times))
+                                        time_str)
 
     # until fix for multiple times per movie
     if len(movie_names) != len(movie_times):
