@@ -13,6 +13,10 @@ from dateutil import parser as dparser
 from secrets import API_KEY
 
 
+## TODO
+# http://omdbapi.com/apikey.aspx
+
+
 def get_movies(theater, date):
     """Get movie names and times
 
@@ -38,7 +42,6 @@ def get_movies_google(theater, date):
     # :kwargs: other search terms, e.g. date
     :returns: (list of movie names, list of lists of movie times)
     """
-    # param_str = ' '.join((theater, *args, *kwargs.values()))
     def safe_encode(*args, **kwargs):
         SPACE_CHAR = '+'
         return SPACE_CHAR.join((*args, *kwargs.values())).replace(
@@ -63,6 +66,7 @@ def get_movies_google(theater, date):
         movie_times = [[time_contents2string(time_div.contents) for time_div
                         in time_divs('div', class_='_wxj')] for time_divs
                        in soup('div', class_='_Oxj')]
+
     except(AssertionError, IndexError):
         movie_names, movie_times = [], [] # no movies found for desired date
 
@@ -325,7 +329,7 @@ def get_theaters(city):
     COMMENT_CHAR = '#'
 
     dirname = os.path.dirname(os.path.realpath(__file__))
-    fname = '_'.join((BASE_FNAME, city))
+    fname = '_'.join((BASE_FNAME, str(city)))
 
     with open(os.path.join(dirname, fname), 'r') as f:
         theaters = [l.strip().lower() for l in f
@@ -365,19 +369,9 @@ def convert_date(date_in):
 
 
 def get_parser():
-    # defaults
-    # CITY = 'nyc'
-    # DATE = 'today'
-
     parser = argparse.ArgumentParser(description=(''))
-    parser.add_argument('city and/or date', nargs='*', default=[''],
+    parser.add_argument('city and/or date', nargs='*', default=[None],
                         help='(default: nyc today)')
-    # parser.add_argument('city', nargs='?', default=CITY,
-    #                     # help='corresponding to "theater_$CITY" (default: nyc)')
-    #                     help='(default: nyc)')
-    # parser.add_argument('date', nargs='?', default=DATE,
-    #                     # help='"1/18" or "tom" or .. (default: today)')
-    #                     help='(default: today)')
     parser.add_argument('--simple', action='store_true',
                         help='display without ratings? (default: false)')
     parser.add_argument('--sorted', action='store_true',
@@ -410,11 +404,10 @@ if __name__ == '__main__':
 
     # do stuff
     kwargs = {
-        # 'date': convert_date(args.date)
         'date': convert_date(date)
     }
     d_cached = {}
-    # for theater in get_theaters(args.city):
+
     for theater in theaters:
         print('')
         kwargs['theater'] = theater
@@ -431,5 +424,4 @@ if __name__ == '__main__':
                                                 movie_ratings,
                                                 args.filter_by),
                      sorted_=args.sorted)
-
     print('')
