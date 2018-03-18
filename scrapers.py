@@ -36,7 +36,7 @@ def get_movies_google(theater, date):
 
     try:
         # check date
-        date_found, = soup('td', class_='nobr')[0].contents
+        date_found, = soup('div', class_='r0jJne AyRB2d')[0].span.contents
         assert convert_date(date_found) == date
 
         time_contents2string = lambda t: ''.join((str(t[0]), *t[1].contents))
