@@ -31,19 +31,22 @@ def get_movies_google(theater, date):
 
     # TODO google static html only returns up to 10 movies..
 
+    CLASS_MOVIE = 'JLxn7'
+    CLASS_TIMES = 'e3wEkd'
+
     try:
         # check date
-        date_found = soup('div', class_='_S5j _Y5j')[0].span.contents[0]
+        date_found, = soup('td', class_='nobr')[0].contents
         assert convert_date(date_found) == date
 
         time_contents2string = lambda t: ''.join((str(t[0]), *t[1].contents))
 
         # no need to filter - tags only correspond to upcoming movie times
         movie_names = [movie_div.a.contents[0] for movie_div
-                       in soup('div', class_='_T5j')]
+                       in soup('div', class_=CLASS_MOVIE)]
         movie_times = [[time_contents2string(time_div.contents) for time_div
-                        in time_divs('div', class_='_wxj')] for time_divs
-                       in soup('div', class_='_Oxj')]
+                        in time_divs('div', class_='ovxuVd')] for time_divs
+                       in soup('div', class_=CLASS_TIMES)]
 
     except(AssertionError, IndexError):
         movie_names, movie_times = [], [] # no movies found for desired date
@@ -53,9 +56,9 @@ def get_movies_google(theater, date):
         n_timelists_per_movie = []
         types_per_movie = []
 
-        for elem in soup('div', class_='_T5j')[0].nextGenerator(): # after 1st movie
+        for elem in soup('div', class_=CLASS_MOVIE)[0].nextGenerator(): # after 1st movie
             if isinstance(elem, element.Tag):
-                if elem.name == 'div' and elem.get('class') == ['_Oxj']: # time list
+                if elem.name == 'div' and elem.get('class') == [CLASS_TIMES]: # time list
                     types_per_movie.append(elem.previous.previous.string) # standard, imax, 3d, ..
                     n += 1
                 elif elem.name == 'td' and elem.get('class') == ['_V5j']: # movie divider
