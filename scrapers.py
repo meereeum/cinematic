@@ -61,7 +61,7 @@ def get_movies_google(theater, date):
                 if elem.name == 'div' and elem.get('class') == [CLASS_TIMES]: # time list
                     types_per_movie.append(elem.previous.previous.string) # standard, imax, 3d, ..
                     n += 1
-                elif elem.name == 'td' and elem.get('class') == ['_V5j']: # movie divider
+                elif elem.name == 'td' and elem.get('class') == ['Qlgfwc']: # movie divider
                     n_timelists_per_movie.append(n)
                     n = 0
         n_timelists_per_movie.append(n)
