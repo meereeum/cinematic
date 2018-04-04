@@ -58,10 +58,13 @@ def get_movies_google(theater, date):
         n_timelists_per_movie = []
         types_per_movie = []
 
+        PATTERN = re.compile('^.*\((.*)\)') # capture movietype in parens
+
         for elem in soup('div', class_=CLASS['movie'])[0].nextGenerator(): # after 1st movie
             if isinstance(elem, element.Tag):
                 if elem.name == 'div' and elem.get('class') == [CLASS['timelist']]: # time list
-                    types_per_movie.append(elem.previous.previous.string) # standard, imax, 3d, ..
+                    movietype = re.sub(PATTERN, '\\1', elem.previous.previous.string)
+                    types_per_movie.append(movietype) # standard, imax, 3d, ..
                     n += 1
                 elif elem.name == 'td' and elem.get('class') == [CLASS['divider']]: # movie divider
                     n_timelists_per_movie.append(n)

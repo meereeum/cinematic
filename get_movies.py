@@ -62,12 +62,7 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
         return '{}{:{}}{:^{}}{}'.format(rating_str,
                                         name, col_space,
                                         SEP_CHAR, SPACER * 2 + len(SEP_CHAR),
-                                        # ', '.join(times))
                                         time_str)
-
-    # until fix for multiple times per movie
-    # if len(movie_names) != len(movie_times):
-    #     movie_times = (('?') for _ in movie_names)
 
     with_rating = (movie_ratings != [])
     movie_strs = [to_pprint_str(name, times, rating, with_rating=with_rating)
