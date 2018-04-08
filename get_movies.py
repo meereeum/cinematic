@@ -1,11 +1,12 @@
 import argparse
 from itertools import zip_longest
-import math
 import re
+
+from CLIppy import convert_date, pprint_header_with_lines
 
 from ratings import get_ratings
 from scrapers import get_movies_google, get_movies_film_noir, get_movies_metrograph, get_movies_videology
-from utils import convert_date, filter_by_rating, get_theaters
+from utils import filter_by_rating, get_theaters
 
 
 def get_movies(theater, date):
@@ -34,9 +35,7 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
     :sorted_: sort movies by descending rating ?
     """
     SPACER = 2
-
     SEP_CHAR = '|'
-    UNDERLINE_CHAR = '_'
 
     PATTERN = re.compile(', \[') # match movie type in timelist
 
@@ -72,12 +71,7 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
         zip(movie_ratings, movie_strs), reverse=True)] # sort best -> worst
                   if sorted_ else movie_strs)
 
-    round_up_to_even = lambda x: math.ceil(x / 2) * 2 # closest even int (>=)
-    underline_space = round_up_to_even(len(max(movie_strs, key=len)) -
-                                       theater_space) + theater_space
-    theater_str = '{:{}^{}}'.format(theater.upper(), UNDERLINE_CHAR, underline_space)
-
-    print(theater_str); print('\n'.join(movie_strs))
+    pprint_header_with_lines(theater.upper(), movie_strs)
 
 
 def get_parser():

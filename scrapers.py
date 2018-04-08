@@ -1,33 +1,25 @@
 from datetime import datetime
 from itertools import chain
 import re
-import requests
 
-from bs4 import BeautifulSoup, element
+from bs4 import element
 from dateutil import parser as dparser
 
-from utils import convert_date
+from CLIppy import convert_date, safe_encode, soup_me
 
 
-def get_movies_google(theater, date):
+def get_movies_google(theater, date, *args, **kwargs):
     """Get movie names and times from Google search
 
     :theater: str
     :date: str (yyyy-mm-dd) (default: today)
-    # :args: other search terms, e.g. date
-    # :kwargs: other search terms, e.g. date
+    :args, kwargs: other search terms, e.g. zip code
     :returns: (list of movie names, list of lists of movie times)
     """
-    def safe_encode(*args, **kwargs):
-        SPACE_CHAR = '+'
-        return SPACE_CHAR.join((*args, *kwargs.values())).replace(
-            ' ', SPACE_CHAR)
-
     BASE_URL = 'https://www.google.com/search'
-    PARAMS = {'q': safe_encode(theater, date)}
-    # PARAMS = {'q': safe_encode(theater, date, *args, **kwargs)}
+    PARAMS = {'q': safe_encode(theater, date, *args, **kwargs)}
 
-    soup = BeautifulSoup(requests.get(BASE_URL, PARAMS).content, 'lxml')
+    soup = soup_me(BASE_URL, PARAMS)
 
     # TODO google static html only returns up to 10 movies..
 
@@ -126,10 +118,9 @@ def get_movies_metrograph(theater, date):
     :returns: (list of movie names, list of lists of movie times)
     """
     BASE_URL = 'http://metrograph.com/film'
-    # PARAMS = [('d', quote(date))]
     PARAMS = [('d', date)]
 
-    soup = BeautifulSoup(requests.get(BASE_URL, PARAMS).content, 'lxml')
+    soup = soup_me(BASE_URL, PARAMS)
 
     movie_names = [movie_div.a.contents[0] for movie_div
                    in soup('h4', class_='title')]
@@ -149,9 +140,9 @@ def get_movies_videology(theater, date):
     :date: str (yyyy-mm-dd) (default: today)
     :returns: (list of movie names, list of lists of movie times)
     """
-    BASE_URL = 'https://videologybarandcinema.com/events/'
+    BASE_URL = 'https://videologybarandcinema.com/events/{}'
 
-    soup = BeautifulSoup(requests.get(BASE_URL + date).content, 'lxml')
+    soup = soup_me(BASE_URL.format(date))
 
     movie_names = [movie_div.a['title'] for movie_div
                    in soup('h2', class_='tribe-events-list-event-title summary')]
@@ -177,7 +168,7 @@ def get_movies_film_noir(theater, date):
     """
     BASE_URL = 'https://www.filmnoircinema.com/program'
 
-    soup = BeautifulSoup(requests.get(BASE_URL).content, 'lxml')
+    soup = soup_me(BASE_URL)
 
     date = dparser.parse(date)
     movie_divs = soup('a', class_='eventlist-title-link',

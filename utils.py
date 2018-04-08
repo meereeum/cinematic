@@ -1,8 +1,5 @@
-from datetime import datetime, timedelta
 import os
 import sys
-
-from dateutil import parser as dparser
 
 
 def filter_by_rating(movie_names, movie_times, movie_ratings, threshold=0):
@@ -42,35 +39,3 @@ def get_theaters(city):
         theaters = [l.strip().lower() for l in f
                     if not l.startswith(COMMENT_CHAR)]
     return theaters
-
-
-def convert_date(date_in):
-    """Convert string to uniform `datetime` string
-
-    :date_in: str
-    :returns: str ('YYYY-MM-DD')
-    """
-    D_CONVERSIONS = {
-        'today': datetime.now(),
-        'tomorrow': datetime.now() + timedelta(days=1),
-        'tomorr': datetime.now() + timedelta(days=1),
-        'tom': datetime.now() + timedelta(days=1),
-        'mon': 'monday',
-        'tues': 'tuesday',
-        'wed': 'wednesday',
-        'thurs': 'thursday',
-        'fri': 'friday'
-    }
-
-    # if abbrev, uncompress for parser
-    date_out = D_CONVERSIONS.get(date_in.lower(), date_in)
-
-    try: # if str, convert to datetime
-        date_out = dparser.parse(date_out)
-    except(AttributeError, TypeError): # already datetime
-        date_out = date_out
-    except(ValueError):
-        print("I don't recognize that date.. try again ?")
-        sys.exit(0)
-
-    return date_out.strftime('%Y-%m-%d')
