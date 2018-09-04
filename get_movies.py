@@ -1,28 +1,43 @@
 import argparse
+from functools import partial, reduce
 from itertools import zip_longest
+from operator import add
 import re
 
-from CLIppy import convert_date, pprint_header_with_lines
+from CLIppy import convert_date, fail_gracefully, get_from_file, pprint_header_with_lines
 
 from ratings import get_ratings
 from scrapers import get_movies_google, get_movies_film_noir, get_movies_metrograph, get_movies_videology
 from utils import filter_by_rating, get_theaters
 
+# TODO fail gracefully around some central fn
 
-def get_movies(theater, date):
+
+def get_movies(theater, date, **kwargs):
     """Get movie names and times
 
     :theater: str
     :date: str (yyyy-mm-dd) (default: today)
     :returns: (list of movie names, list of lists of movie times)
     """
-    D_ACTIONS = {
-        'film noir': get_movies_film_noir,
-        'metrograph': get_movies_metrograph,
-        'videology': get_movies_videology
-    }
-    action = D_ACTIONS.get(theater, get_movies_google) # default to google search
+    D_ACTIONS = dict(
+        film_noir=get_movies_film_noir,
+        metrograph=get_movies_metrograph,
+        videology=get_movies_videology
+    )
+    action = D_ACTIONS.get(theater.replace(' ', '_'),
+                           get_movies_google) # default to google search
     return action(theater, date)
+
+
+def get_movies_from_file(f, **kwargs):
+    """
+    path/to/file -> list of movienames
+    """
+    movie_names = get_from_file(f=f)
+    movie_times = [''] * len(movie_names)
+
+    return movie_names, movie_times # appropriately sized list of empty strings
 
 
 def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=False):
@@ -34,17 +49,17 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
     :movie_ratings: [floats]
     :sorted_: sort movies by descending rating ?
     """
+    if not movie_names: # search found no movies
+        print('skipping {}...'.format(theater))
+        return
+
     SPACER = 2
-    SEP_CHAR = '|'
+    SEP_CHAR = '|' if reduce(add, movie_times) else '' # no SEP if no times (list of empty strs)
 
     PATTERN = re.compile(', \[') # match movie type in timelist
 
     theater_space = len(theater)
-    try:
-        col_space = len(max(movie_names, key=len))
-    except(ValueError): # search found no movies
-        print('skipping {}...'.format(theater))
-        return
+    col_space = len(max(movie_names, key=len))
 
     def to_pprint_str(name, times, rating, with_rating=True):
         if with_rating:
@@ -78,6 +93,7 @@ def get_parser():
     parser = argparse.ArgumentParser(description=(''))
     parser.add_argument('city and/or date', nargs='*', default=[None],
                         help='(default: nyc today)')
+    parser.add_argument('-f', type=str, default=None, help='path/to/moviefile')
     parser.add_argument('--simple', action='store_true',
                         help='display without ratings? (default: false)')
     parser.add_argument('--sorted', action='store_true',
@@ -95,30 +111,37 @@ if __name__ == '__main__':
     # parse args
     args = get_parser().parse_args()
 
-    city_date = args.__getattribute__('city and/or date') # b/c spaces
-    city_date.append(DATE) # pad with default
-    maybe_city, maybe_date, *_ = city_date
+    moviefile = args.f
+    if moviefile is not None: # from file
 
-    try:
-        city = maybe_city
-        theaters = get_theaters(city)
-        date = maybe_date
-    except(FileNotFoundError): # date rather than city
-        city = CITY
-        theaters = get_theaters(city)
-        date = maybe_city if maybe_city else DATE
+        theaters = [moviefile.split('_')[-1]]
+        moviegetter = partial(get_movies_from_file, f=moviefile)
+
+    else:                     # from movies by city/date
+
+        city_date = args.__getattribute__('city and/or date') # b/c spaces
+        city_date.append(DATE) # pad with default
+        maybe_city, maybe_date, *_ = city_date
+
+        try:
+            city = maybe_city
+            theaters = get_theaters(city)
+            date = maybe_date
+        except(FileNotFoundError, AssertionError): # date rather than city
+            city = CITY
+            theaters = get_theaters(city)
+            date = maybe_city if maybe_city else DATE
+
+        moviegetter = partial(get_movies, date=convert_date(date))
 
     # do stuff
-    kwargs = {
-        'date': convert_date(date)
-    }
     d_cached = {}
 
     for theater in theaters:
-        print('')
-        kwargs['theater'] = theater
+        print()
 
-        movie_names, movie_times = get_movies(**kwargs)
+        # movie_names, movie_times = get_movies(**kwargs, theater=theater)
+        movie_names, movie_times = moviegetter(theater=theater)
 
         if args.filter_by > 0 or not args.simple:
             movie_ratings, d_cached = get_ratings(movie_names, d_cached)
@@ -130,4 +153,4 @@ if __name__ == '__main__':
                                                 movie_ratings,
                                                 args.filter_by),
                      sorted_=args.sorted)
-    print('')
+    print()
