@@ -128,8 +128,13 @@ if __name__ == '__main__':
             theaters = get_theaters(city)
             date = maybe_date
         except(FileNotFoundError, AssertionError): # date rather than city
-            city = CITY
-            theaters = get_theaters(city)
+            try:
+                city = maybe_date
+                theaters = get_theaters(city)
+            except(FileNotFoundError, AssertionError): # fall back to default
+                city = CITY
+                theaters = get_theaters(city)
+
             date = maybe_city if maybe_city else DATE
 
         moviegetter = partial(get_movies, date=convert_date(date))
