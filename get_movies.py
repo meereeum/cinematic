@@ -129,13 +129,12 @@ if __name__ == '__main__':
             date = maybe_date
         except(FileNotFoundError, AssertionError): # date rather than city
             try:
-                city = maybe_date
+                city = maybe_date # could be None..
                 theaters = get_theaters(city)
-            except(FileNotFoundError, AssertionError): # fall back to default
+            except(FileNotFoundError, AssertionError): # date rather than city
                 city = CITY
                 theaters = get_theaters(city)
-
-            date = maybe_city if maybe_city else DATE
+            date = maybe_city if maybe_city is not None else DATE
 
         moviegetter = partial(get_movies, date=convert_date(date))
 
@@ -145,7 +144,6 @@ if __name__ == '__main__':
     for theater in theaters:
         print()
 
-        # movie_names, movie_times = get_movies(**kwargs, theater=theater)
         movie_names, movie_times = moviegetter(theater=theater)
 
         if args.filter_by > 0 or not args.simple:

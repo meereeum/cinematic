@@ -32,13 +32,3 @@ def get_theaters(city):
     """
     dirname = os.path.dirname(os.path.realpath(__file__))
     return get_from_file(suffix=city, prefix='theaters', dirname=dirname)
-    # BASE_FNAME = 'theaters'
-    # COMMENT_CHAR = '#'
-
-    # dirname = os.path.dirname(os.path.realpath(__file__))
-    # fname = '_'.join((BASE_FNAME, str(city)))
-
-    # with open(os.path.join(dirname, fname), 'r') as f:
-    #     theaters = [l.strip().lower() for l in f
-    #                 if not l.startswith(COMMENT_CHAR)]
-    # return theaters

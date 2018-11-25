@@ -5,7 +5,7 @@ import re
 from bs4 import element
 from dateutil import parser as dparser
 
-from CLIppy import convert_date, safe_encode, soup_me
+from CLIppy import AttrDict, convert_date, safe_encode, soup_me
 
 
 def get_movies_google(theater, date, *args, **kwargs):
@@ -16,33 +16,44 @@ def get_movies_google(theater, date, *args, **kwargs):
     :args, kwargs: other search terms, e.g. zip code
     :returns: (list of movie names, list of lists of movie times)
     """
+    # date = convert_date(date, fmt_out='%A %m/%d')
+    fdate = convert_date(date, fmt_out='%A') # formatted for search
+    # date = convert_date(date, fmt_out='%m/%d') # /%y')
+
     BASE_URL = 'https://www.google.com/search'
-    PARAMS = {'q': safe_encode(theater, date, *args, **kwargs)}
+    # PARAMS = {'q': safe_encode(theater, date, *args, **kwargs)}
+    PARAMS = {'q': safe_encode('showtimes at', theater, fdate,
+                               *args, **kwargs)}
 
     soup = soup_me(BASE_URL, PARAMS)
 
     # TODO google static html only returns up to 10 movies..
 
-    CLASS = {'movie': 'JLxn7',
-             'timelist': 'e3wEkd',
-             'time': 'ovxuVd',
-             'divider': 'Qlgfwc'}
+    CLASS = AttrDict(
+            movie = 'JLxn7',
+            date = 'r0jJne AyRB2d',
+            timelist = 'e3wEkd',
+            time = 'ovxuVd',
+            divider = 'Qlgfwc'
+    )
 
     try:
         # check date
-        date_found, = soup('div', class_='r0jJne AyRB2d')[0].span.contents
-        assert convert_date(date_found) == date
+        date_found, = soup('div', class_=CLASS.date)[0].span.contents
+        assert convert_date(date_found) == date, '[ {} != {} ]'.format(date_found, date)
 
         time_contents2string = lambda t: ''.join((str(t[0]), *t[1].contents))
 
         # no need to filter - tags only correspond to upcoming movie times
         movie_names = [movie_div.a.contents[0] for movie_div
-                       in soup('div', class_=CLASS['movie'])]
+                       in soup('div', class_=CLASS.movie)]
         movie_times = [[time_contents2string(time_div.contents) for time_div
-                        in time_divs('div', class_=CLASS['time'])] for time_divs
-                       in soup('div', class_=CLASS['timelist'])]
+                        in time_divs('div', class_=CLASS.time)] for time_divs
+                       in soup('div', class_=CLASS.timelist)]
 
-    except(AssertionError, IndexError):
+    except(AssertionError, IndexError) as e:
+        #import IPython; IPython.embed()
+        print(str(e)) # error msg only
         movie_names, movie_times = [], [] # no movies found for desired date
 
     if len(movie_names) != len(movie_times): # multiple timelists per movie
@@ -52,22 +63,27 @@ def get_movies_google(theater, date, *args, **kwargs):
 
         PATTERN = re.compile('^.*\((.*)\)') # capture movietype in parens
 
-        for elem in soup('div', class_=CLASS['movie'])[0].nextGenerator(): # after 1st movie
+        for elem in soup('div', class_=CLASS.movie)[0].nextGenerator(): # after 1st movie
             if isinstance(elem, element.Tag):
-                if elem.name == 'div' and elem.get('class') == [CLASS['timelist']]: # time list
-                    movietype = re.sub(PATTERN, '\\1', elem.previous.previous.string)
+                # time list:
+                if elem.name == 'div' and elem.get('class') == [CLASS.timelist]:
+                    movietype = re.sub(PATTERN, '\\1',
+                                       elem.previous.previous.string)
                     types_per_movie.append(movietype) # standard, imax, 3d, ..
                     n += 1
-                elif elem.name == 'td' and elem.get('class') == [CLASS['divider']]: # movie divider
+
+                # movie divider:
+                elif elem.name == 'td' and elem.get('class') == [CLASS.divider]:
                     n_timelists_per_movie.append(n)
                     n = 0
+
         n_timelists_per_movie.append(n)
 
         movie_names = list(chain.from_iterable(
             [name] * n for name, n in zip(movie_names, n_timelists_per_movie)))
         movie_times = [(times if movie_type == 'Standard' else
                         times + ['[ {} ]'.format(movie_type)])
-                    for times, movie_type in zip(movie_times, types_per_movie)]
+                       for times, movie_type in zip(movie_times, types_per_movie)]
 
         assert len(movie_names) == len(movie_times), '{} != {}'.format(
             len(movie_names), len(movie_times))
@@ -118,7 +134,7 @@ def get_movies_metrograph(theater, date):
     :returns: (list of movie names, list of lists of movie times)
     """
     BASE_URL = 'http://metrograph.com/film'
-    PARAMS = [('d', date)]
+    PARAMS = {'d': date}
 
     soup = soup_me(BASE_URL, PARAMS)
 
