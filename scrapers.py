@@ -227,7 +227,7 @@ def get_movies_pghfilmmakers(theater, date):
     # get date block
     try:
         block, = [day for day in soup.findAll('caption')
-                  if day.text == convert_date(date, fmt_out='%a, %b %d')]
+                  if day.text == convert_date(date, fmt_out='%a, %b %-d')]
     except(ValueError): # indexing into empty list
         return [], []
 
