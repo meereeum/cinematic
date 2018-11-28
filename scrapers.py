@@ -1,9 +1,11 @@
 from datetime import datetime
 from itertools import chain
+from operator import itemgetter
 import re
 
 from bs4 import element
 from dateutil import parser as dparser
+from more_itertools import groupby_transform
 
 from CLIppy import AttrDict, convert_date, safe_encode, soup_me
 
@@ -201,5 +203,50 @@ def get_movies_film_noir(theater, date):
 
     # filter movies with no future times
     movie_names, movie_times = filter_movies(movie_names, movie_times)
+
+    return movie_names, movie_times
+
+
+def get_movies_pghfilmmakers(theater, date):
+    """Get movie names and times from Pittsburgh Filmmakers website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'http://cinema.pfpca.org/films/showtimes?location={}'
+
+    D_THEATERS = {
+        'regent square theater': 24,
+        'harris theater': 20,
+        'melwood screening room': 18
+    }
+
+    soup = soup_me(BASE_URL.format(D_THEATERS[theater.lower()]))
+
+    # get date block
+    try:
+        block, = [day for day in soup.findAll('caption')
+                  if day.text == convert_date(date, fmt_out='%a, %b %d')]
+    except(ValueError): # indexing into empty list
+        return [], []
+
+    movie_names = [name.text for name in block.next.next.next.findAll(
+                   'a', href=re.compile('/films/*'))]
+
+    movie_datetimes = [
+        ' @ '.join((date, div.next.next.next.text.strip()))
+        for div in block.next.next.next.findAll(
+            'td', class_='views-field views-field-field-location')]
+
+    movie_times = filter_past(movie_datetimes)
+
+    # filter movies with no future times
+    movie_names, movie_times = filter_movies(movie_names, movie_times)
+
+    # combine times for same movie
+    movie_names, movie_times = zip(
+        *[(k, list(chain.from_iterable(g))) for k,g in groupby_transform(
+            zip(movie_names, movie_times), itemgetter(0), itemgetter(1))])
 
     return movie_names, movie_times
