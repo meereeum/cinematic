@@ -42,4 +42,23 @@ _____________________________________MANOR THEATRE______________________________
 (90%)  Green Book                                   |  1:45pm, 4:25pm, 7:00pm, 9:35pm
 (84%)  Bohemian Rhapsody                            |  2:00pm, 4:40pm, 7:20pm, 9:55pm
 (40%)  Fantastic Beasts: The Crimes of Grindelwald  |  1:50pm, 4:30pm, 7:10pm, 9:50pm
+
+```
+
+## Full disclosure
+
+```
+usage: get_movies.py [-h] [-f F] [--simple] [--sorted] [--filter-by FILTER_BY]
+                     [city and/or date [city and/or date ...]]
+
+positional arguments:
+  city and/or date      (default: nyc today)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f F                  path/to/moviefile
+  --simple              display without ratings? (default: false)
+  --sorted              sort by rating? (default: false)
+  --filter-by FILTER_BY
+                        minimum rating threshold (default: 0)
 ```
