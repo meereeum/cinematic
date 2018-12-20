@@ -1,6 +1,63 @@
+from datetime import datetime
+from itertools import chain
+from operator import itemgetter
 import os
 
+from dateutil import parser as dparser
+from more_itertools import groupby_transform
+
 from CLIppy import get_from_file
+
+
+error_str='[ {} ]'
+
+
+def filter_movies(movie_names, movie_times):
+    """Filter movies that have no corresponding times
+
+    :movie_names: [str]
+    :movie_times: [[str], [str]]
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    is_empty = lambda lst: (all(map(is_empty, lst)) if isinstance(lst, list)
+                            else False) # check if (nested) list is empty
+
+    movie_names, movie_times = (([], []) if is_empty(movie_times) else
+                                zip(*((name, time) for name, time in
+                                      zip(movie_names, movie_times) if time)))
+    return list(movie_names), list(movie_times)
+
+
+def filter_past(datetimes, cutoff=None):
+    """Filter datetimes before cutoff
+
+    :datetimes: list of strs ("date @ time")
+    :cutoff: datetime str (default: now)
+    :returns: list of lists of strs (or emptylist if past)
+    """
+    cutoff = datetime.now() if cutoff is None else dparser.parse(cutoff)
+
+    is_past = lambda dt: (
+        dparser.parse(dt.replace('@', ',')) - cutoff).total_seconds() < 0
+
+    # date @ time -> time
+    strftime = lambda dt: dt.split(' @ ')[1].replace(' ', '').lower()
+
+    return [[strftime(dt)] # list of lists of "times"
+            if not is_past(dt) else [] for dt in datetimes]
+
+
+def combine_times(movie_names, movie_times):
+    """Combine times for duplicate movienames
+
+    :movie_names: [str]
+    :movie_times: [[str], [str]]
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    movie_names, movie_times = zip(
+        *[(k, list(chain.from_iterable(g))) for k,g in groupby_transform(
+            zip(movie_names, movie_times), itemgetter(0), itemgetter(1))])
+    return list(movie_names), list(movie_times)
 
 
 def filter_by_rating(movie_names, movie_times, movie_ratings, threshold=0):

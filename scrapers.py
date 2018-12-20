@@ -1,13 +1,12 @@
 from datetime import datetime
 from itertools import chain
-from operator import itemgetter
 import re
 
 from bs4 import element
 from dateutil import parser as dparser
-from more_itertools import groupby_transform
 
 from CLIppy import AttrDict, convert_date, safe_encode, soup_me
+from utils import combine_times, error_str, filter_movies, filter_past
 
 
 def get_movies_google(theater, date, *args, **kwargs):
@@ -42,20 +41,21 @@ def get_movies_google(theater, date, *args, **kwargs):
     try:
         # check date
         date_found, = soup('div', class_=CLASS.date)[0].span.contents
-        assert convert_date(date_found) == date, '[ {} != {} ]'.format(date_found, date)
+        assert convert_date(date_found) == date, error_str.format(
+            '{} != {}'.format(date_found, date))
 
         time_contents2string = lambda t: ''.join((str(t[0]), *t[1].contents))
 
         # no need to filter - tags only correspond to upcoming movie times
         movie_names = [movie_div.a.contents[0] for movie_div
                        in soup('div', class_=CLASS.movie)]
-        movie_times = [[time_contents2string(time_div.contents) for time_div
-                        in time_divs('div', class_=CLASS.time)] for time_divs
-                       in soup('div', class_=CLASS.timelist)]
+        movie_times = [[time_contents2string(time_div.contents)
+                        for time_div in time_divs('div', class_=CLASS.time)]
+                       for time_divs in soup('div', class_=CLASS.timelist)]
 
     except(AssertionError, IndexError) as e:
         #import IPython; IPython.embed()
-        print(str(e)) # error msg only
+        print(error_str.format(e))        # error msg only
         movie_names, movie_times = [], [] # no movies found for desired date
 
     if len(movie_names) != len(movie_times): # multiple timelists per movie
@@ -91,41 +91,6 @@ def get_movies_google(theater, date, *args, **kwargs):
             len(movie_names), len(movie_times))
 
     return movie_names, movie_times
-
-
-def filter_movies(movie_names, movie_times):
-    """Filter movies that have no corresponding times
-
-    :movie_names: [str]
-    :movie_times: [[str], [str]]
-    :returns: (list of movie names, list of lists of movie times)
-    """
-    is_empty = lambda lst: (all(map(is_empty, lst)) if isinstance(lst, list)
-                            else False) # check if (nested) list is empty
-
-    movie_names, movie_times = (([], []) if is_empty(movie_times) else
-                                zip(*((name, time) for name, time in
-                                      zip(movie_names, movie_times) if time)))
-    return list(movie_names), list(movie_times)
-
-
-def filter_past(datetimes, cutoff=None):
-    """Filter datetimes before cutoff
-
-    :datetimes: list of strs ("date @ time")
-    :cutoff: datetime str (default: now)
-    :returns: list of lists of strs (or emptylist if past)
-    """
-    cutoff = datetime.now() if cutoff is None else dparser.parse(cutoff)
-
-    is_past = lambda dt: (
-        dparser.parse(dt.replace('@', ',')) - cutoff).total_seconds() < 0
-
-    # date @ time -> time
-    strftime = lambda dt: dt.split(' @ ')[1].replace(' ', '').lower()
-
-    return [[strftime(dt)] # list of lists of "times"
-            if not is_past(dt) else [] for dt in datetimes]
 
 
 def get_movies_metrograph(theater, date):
@@ -202,7 +167,8 @@ def get_movies_film_noir(theater, date):
     movie_times = filter_past(movie_datetimes)
 
     # filter movies with no future times
-    movie_names, movie_times = filter_movies(movie_names, movie_times)
+    # & combine times for same movie
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     return movie_names, movie_times
 
@@ -242,11 +208,7 @@ def get_movies_pghfilmmakers(theater, date):
     movie_times = filter_past(movie_datetimes)
 
     # filter movies with no future times
-    movie_names, movie_times = filter_movies(movie_names, movie_times)
-
-    # combine times for same movie
-    movie_names, movie_times = zip(
-        *[(k, list(chain.from_iterable(g))) for k,g in groupby_transform(
-            zip(movie_names, movie_times), itemgetter(0), itemgetter(1))])
+    # & combine times for same movie
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     return movie_names, movie_times
