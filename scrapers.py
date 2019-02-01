@@ -42,8 +42,7 @@ def get_movies_google(theater, date, *args, **kwargs):
     try:
         # check date
         date_found, = soup('div', class_=CLASS.date)[0].span.contents
-        assert convert_date(date_found) == date, error_str.format(
-            '{} != {}'.format(date_found, date))
+        assert convert_date(date_found) == date, '{} != {}'.format(date_found, date)
 
         time_contents2string = lambda t: ''.join((str(t[0]), *t[1].contents))
 
@@ -229,12 +228,8 @@ def get_movies_loews_theater(theater, date):
     movie_headers = [h for h in soup.findAll('h3', class_="tribe-events-month-event-title")
                      if h.text.lower().startswith("film screening")]
 
-    def format_datestr(datestr):
-        mm, dd, yyyy = datestr[:2], datestr[2:4], datestr[4:]
-        return '-'.join((yyyy,mm,dd))
-
     relevant_movies = [h for h in movie_headers if
-                       format_datestr(h.a['href'].replace('/', '')[-8:]) == date]
+                       h.parent.attrs['id'][-10:] == date]
 
     if relevant_movies:
         movie_names = [h.text.replace('Film Screening: “', '').replace('”','')
@@ -242,7 +237,7 @@ def get_movies_loews_theater(theater, date):
         movie_datetimes = [json.loads(h.parent.attrs['data-tribejson'])['startTime'] # date @ time
                            for h in relevant_movies]
 
-        movie_times = filter_past(movie_datetimes, cutoff='1/22/19')
+        movie_times = filter_past(movie_datetimes)
         movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     else:
