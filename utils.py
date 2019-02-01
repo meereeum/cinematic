@@ -54,9 +54,16 @@ def combine_times(movie_names, movie_times):
     :movie_times: [[str], [str]]
     :returns: (list of movie names, list of lists of movie times)
     """
+    assert len(movie_names) == len(movie_times), '{} != {}'.format(
+        movie_name, movie_times)
+
+    if not movie_names:
+        return [], []
+
     movie_names, movie_times = zip(
         *[(k, list(chain.from_iterable(g))) for k,g in groupby_transform(
             zip(movie_names, movie_times), itemgetter(0), itemgetter(1))])
+
     return list(movie_names), list(movie_times)
 
 

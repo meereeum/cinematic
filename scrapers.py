@@ -188,7 +188,7 @@ def get_movies_pghfilmmakers(theater, date):
         'melwood screening room': 18
     }
 
-    soup = soup_me(BASE_URL.format(D_THEATERS[theater.lower()]))
+    soup = soup_me(BASE_URL.format(D_THEATERS[theater]))
 
     # get date block
     try:

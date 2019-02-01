@@ -130,7 +130,7 @@ if __name__ == '__main__':
             city = maybe_city
             theaters = get_theaters(city)
             date = maybe_date
-        except(FileNotFoundError, AssertionError): # date rather than city
+        except(FileNotFoundError, AssertionError):     # date rather than city
             try:
                 city = maybe_date # could be None..
                 theaters = get_theaters(city)
