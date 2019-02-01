@@ -7,7 +7,7 @@ import re
 from CLIppy import convert_date, fail_gracefully, get_from_file, pprint_header_with_lines
 
 from ratings import get_ratings
-from scrapers import get_movies_google, get_movies_film_noir, get_movies_metrograph, get_movies_videology, get_movies_pghfilmmakers
+from scrapers import *
 from utils import filter_by_rating, get_theaters
 
 # TODO fail gracefully around some central fn
@@ -20,16 +20,20 @@ def get_movies(theater, date, **kwargs):
     :date: str (yyyy-mm-dd) (default: today)
     :returns: (list of movie names, list of lists of movie times)
     """
+    theater = theater.lower()
+
     D_ACTIONS = dict(
         film_noir=get_movies_film_noir,
         metrograph=get_movies_metrograph,
         videology=get_movies_videology,
         regent_square_theater=get_movies_pghfilmmakers,
         harris_theater=get_movies_pghfilmmakers,
-        melwood_screening_room=get_movies_pghfilmmakers
+        melwood_screening_room=get_movies_pghfilmmakers,
+        loews_jersey_theater=get_movies_loews_theater
     )
     action = D_ACTIONS.get(theater.replace(' ', '_'),
                            get_movies_google) # default to google search
+
     return action(theater, date)
 
 

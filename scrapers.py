@@ -1,5 +1,6 @@
 from datetime import datetime
 from itertools import chain
+import json
 import re
 
 from bs4 import element
@@ -210,5 +211,41 @@ def get_movies_pghfilmmakers(theater, date):
     # filter movies with no future times
     # & combine times for same movie
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
+def get_movies_loews_theater(theater, date):
+    """Get movie names and times from Landmark Loew's Jersey website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'http://loewsjersey.org/calendar/?tribe-bar-date={}'
+
+    soup = soup_me(BASE_URL.format(date[:-3])) # yyy-mm
+
+    movie_headers = [h for h in soup.findAll('h3', class_="tribe-events-month-event-title")
+                     if h.text.lower().startswith("film screening")]
+
+    def format_datestr(datestr):
+        mm, dd, yyyy = datestr[:2], datestr[2:4], datestr[4:]
+        return '-'.join((yyyy,mm,dd))
+
+    relevant_movies = [h for h in movie_headers if
+                       format_datestr(h.a['href'].replace('/', '')[-8:]) == date]
+
+    if relevant_movies:
+        movie_names = [h.text.replace('Film Screening: “', '').replace('”','')
+                       for h in relevant_movies]
+        movie_datetimes = [json.loads(h.parent.attrs['data-tribejson'])['startTime'] # date @ time
+                           for h in relevant_movies]
+
+        movie_times = filter_past(movie_datetimes, cutoff='1/22/19')
+        movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    else:
+        movie_names, movie_times = [], []
 
     return movie_names, movie_times
