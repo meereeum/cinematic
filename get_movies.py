@@ -31,6 +31,7 @@ def get_movies(theater, date, **kwargs):
         metrograph=get_movies_metrograph,
         quad_cinema=get_movies_quad,
         syndicated_bk=get_movies_syndicated,
+        village_east_cinema=get_movies_village_east,
         #videology=get_movies_videology, # RIP
         regent_square_theater=get_movies_pghfilmmakers,
         harris_theater=get_movies_pghfilmmakers,

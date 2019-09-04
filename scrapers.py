@@ -427,3 +427,21 @@ def get_movies_cinema_village(theater, date):
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     return movie_names, movie_times
+
+
+def get_movies_village_east(theater, date):
+    """Get movie names and times from Village East Cinema's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://www.citycinemas.com/villageeast/showtimes-and-tickets/now-playing/{}'
+
+    soup = soup_me(BASE_URL.format(date))
+
+    movie_names = [movie.text for movie in soup('h4', class_='name')]
+
+    movie_datetimes = [['{} @ {}'.format(date, time.attrs['value']) for time in
+                        times('input', class_='showtime reserved-seating')]
+                       for times in soup('div', class_="showtimes-wrapper")]
