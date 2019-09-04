@@ -54,7 +54,6 @@ def get_movies_google(theater, date, *args, **kwargs):
                        for time_divs in soup('div', class_=CLASS.timelist)]
 
     except(AssertionError, IndexError) as e:
-        #import IPython; IPython.embed()
         print(error_str.format(e))        # error msg only
         movie_names, movie_times = [], [] # no movies found for desired date
 
@@ -192,7 +191,7 @@ def get_movies_pghfilmmakers(theater, date):
 
     # get date block
     try:
-        block, = [day for day in soup.findAll('caption')
+        block, = [day for day in soup('caption')
                   if day.text == convert_date(date, fmt_out='%a, %b %-d')]
     except(ValueError): # indexing into empty list
         return [], []
@@ -225,7 +224,7 @@ def get_movies_loews_theater(theater, date):
 
     soup = soup_me(BASE_URL.format(date[:-3])) # yyy-mm
 
-    movie_headers = [h for h in soup.findAll('h3', class_="tribe-events-month-event-title")
+    movie_headers = [h for h in soup('h3', class_="tribe-events-month-event-title")
                      if h.text.lower().startswith("film screening")]
 
     relevant_movies = [h for h in movie_headers if
