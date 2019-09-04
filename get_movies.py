@@ -23,9 +23,15 @@ def get_movies(theater, date, **kwargs):
     theater = theater.lower()
 
     D_ACTIONS = dict(
+        alamo_drafthouse_brooklyn=get_movies_alamo,
+        cinema_village=get_movies_cinema_village,
+        film_forum=get_movies_film_forum,
         film_noir=get_movies_film_noir,
+        ifc=get_movies_ifc,
         metrograph=get_movies_metrograph,
-        videology=get_movies_videology,
+        quad_cinema=get_movies_quad,
+        syndicated_bk=get_movies_syndicated,
+        #videology=get_movies_videology, # RIP
         regent_square_theater=get_movies_pghfilmmakers,
         harris_theater=get_movies_pghfilmmakers,
         melwood_screening_room=get_movies_pghfilmmakers,
