@@ -105,3 +105,21 @@ def get_theaters(city):
     """
     dirname = os.path.dirname(os.path.realpath(__file__))
     return get_from_file(suffix=city, prefix='theaters', dirname=dirname)
+
+
+def index_into_days(days, date=None):
+    """Get index into list of days that matches given `date`
+
+    :days: list of days (strs that are parseable by datetime)
+    :date: str (generally yyyy-mm-dd)
+    :returns: int
+    """
+    date = dparser.parse(date) if date is not None else datetime.now()
+
+    # get offset from day0 (which is prob today, but not sure about cutoff for today vs tomorrow)
+    iday = (date - dparser.parse(days[0])).days
+    assert 0 <= iday <= len(days) - 1, '{} !<= {} !<= {}'.format(0, iday, len(days) - 1)
+    assert (date - dparser.parse(days[iday])).days % 7 == 0, '{} != week multiple of {}'.format(
+        days[iday], date)
+
+    return iday

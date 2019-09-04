@@ -7,7 +7,7 @@ from bs4 import element
 from dateutil import parser as dparser
 
 from CLIppy import AttrDict, convert_date, flatten, json_me, safe_encode, soup_me
-from utils import combine_times, error_str, filter_movies, filter_past
+from utils import combine_times, error_str, filter_movies, filter_past, index_into_days
 
 
 def get_movies_google(theater, date, *args, **kwargs):
@@ -349,10 +349,7 @@ def get_movies_film_forum(theater, date):
 
     days = [d.text for d in (soup.find('div', class_='sidebar-container')
                                  .findAll('li'))]
-
-    # get offset from day0 (which is prob today, but not sure about cutoff for today vs tomorrow)
-    iday = (dparser.parse(date) - dparser.parse(days[0])).days
-    assert 0 <= iday <= len(days) - 1, '{} !<= {} !<= {}'.format(0, iday, len(days) - 1)
+    iday = index_into_days(days, date=date)
 
     day = soup.find('div', id='tabs-{}'.format(iday))
 
@@ -411,10 +408,7 @@ def get_movies_cinema_village(theater, date):
 
     days = [day.contents[-1].strip().replace('.', '-')
             for day in soup('a', {'data-toggle': 'tab'})]
-
-    # get offset from day0 (which is prob today, but not sure about cutoff for today vs tomorrow)
-    iday = (dparser.parse(date) - dparser.parse(days[0])).days
-    assert 0 <= iday <= len(days) - 1, '{} !<= {} !<= {}'.format(0, iday, len(days) - 1)
+    iday = index_into_days(days, date=date)
 
     day = soup.find('div', id='tabs_default_{}'.format(iday))
 
