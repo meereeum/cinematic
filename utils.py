@@ -2,6 +2,7 @@ from datetime import datetime
 from itertools import chain
 from operator import itemgetter
 import os
+import re
 
 from dateutil import parser as dparser
 from more_itertools import groupby_transform
@@ -31,20 +32,28 @@ def filter_movies(movie_names, movie_times):
 def filter_past(datetimes, cutoff=None):
     """Filter datetimes before cutoff
 
-    :datetimes: list of strs ("date @ time")
+    :datetimes: list of strs ("date @ time") OR list of lists of strs
     :cutoff: datetime str (default: now)
     :returns: list of lists of strs (or emptylist if past)
     """
     cutoff = datetime.now() if cutoff is None else dparser.parse(cutoff)
 
+    PATTERN = re.compile('m.*$', re.I)
+
     is_past = lambda dt: (
-        dparser.parse(dt.replace('@', ',')) - cutoff).total_seconds() < 0
+        dparser.parse(re.sub(PATTERN, 'm', dt.replace('@', ','))) # ignore any junk after "{a,p}m"
+        - cutoff
+    ).total_seconds() < 0
 
     # date @ time -> time
     strftime = lambda dt: dt.split(' @ ')[1].replace(' ', '').lower()
 
-    return [[strftime(dt)] # list of lists of "times"
-            if not is_past(dt) else [] for dt in datetimes]
+    is_nested_list = isinstance(datetimes[0], list)
+
+    return ([[strftime(dt) for dt in dts if not is_past(dt)]
+             for dts in datetimes] if is_nested_list else
+           [[strftime(dt)] # list of lists of "times"
+            if not is_past(dt) else [] for dt in datetimes])
 
 
 def combine_times(movie_names, movie_times):
