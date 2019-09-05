@@ -38,6 +38,9 @@ def filter_past(datetimes, cutoff=None):
     """
     cutoff = datetime.now() if cutoff is None else dparser.parse(cutoff)
 
+    if not datetimes:
+        return []
+
     PATTERN = re.compile('m.*$', re.I)
 
     is_past = lambda dt: (

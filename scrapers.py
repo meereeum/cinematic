@@ -165,6 +165,7 @@ def get_movies_film_noir(theater, date):
         [' @ '.join((time_div['datetime'], time_div.text)) for time_div in
          movie_div.next.next.next('time', class_='event-time-12hr-start')]
         for movie_div in movie_divs)))
+
     movie_times = filter_past(movie_datetimes)
 
     # filter movies with no future times
@@ -189,7 +190,7 @@ def get_movies_pghfilmmakers(theater, date):
         'melwood screening room': 18
     }
 
-    soup = soup_me(BASE_URL.format(D_THEATERS[theater]))
+    soup = soup_me(BASE_URL.format(D_THEATERS[theater.lower()]))
 
     # get date block
     try:
@@ -198,12 +199,12 @@ def get_movies_pghfilmmakers(theater, date):
     except(ValueError): # indexing into empty list
         return [], []
 
-    movie_names = [name.text for name in block.next.next.next.findAll(
+    movie_names = [name.text for name in block.next.next.next(
                    'a', href=re.compile('/films/*'))]
 
     movie_datetimes = [
         ' @ '.join((date, div.next.next.next.text.strip()))
-        for div in block.next.next.next.findAll(
+        for div in block.next.next.next(
             'td', class_='views-field views-field-field-location')]
 
     movie_times = filter_past(movie_datetimes)
@@ -319,6 +320,7 @@ def get_movies_alamo(theater, date):
 
     movie_names = [movie['FilmName'] for movie in movies]
 
+    # TODO print sold-out times as xed-out ?
     movie_times = [flatten([flatten([
         ['{}m'.format(sesh['SessionTime']) # e.g. p -> pm
          for sesh in f['Sessions'] if (sesh['SessionStatus'] != 'soldout' and # `onsale` only
@@ -387,13 +389,13 @@ def get_movies_film_forum(theater, date):
     soup = soup_me(BASE_URL, headers=headers)
 
     try:
-        assert not soup.meta.attrs.get('name', None) == 'robots', 'robots'
+        assert not soup.meta.attrs.get('name', '').lower() == 'robots', 'robots'
     except(AssertionError) as e:
         print(error_str.format(e)) # error msg only
         return [], []              # blocked from getting movies :(
 
     days = [d.text for d in (soup.find('div', class_='sidebar-container')
-                                 .findAll('li'))]
+                                 .find_all('li'))]
     iday = index_into_days(days, date=date)
 
     day = soup.find('div', id='tabs-{}'.format(iday))
@@ -477,10 +479,12 @@ def get_movies_village_east_or_angelika(theater, date):
     """
     BASE_URL = 'https://www.{}/showtimes-and-tickets/now-playing/{}'
 
-    d_theaters = {'village east cinema': 'citycinemas.com/villageeast',
-                  'angelika film center': 'angelikafilmcenter.com/nyc'}
+    D_THEATERS = {
+        'village east cinema': 'citycinemas.com/villageeast',
+        'angelika film center': 'angelikafilmcenter.com/nyc'
+    }
 
-    soup = soup_me(BASE_URL.format(d_theaters[theater], date))
+    soup = soup_me(BASE_URL.format(D_THEATERS[theater.lower()], date))
 
     movie_names = [movie.text for movie in soup('h4', class_='name')]
 
@@ -513,8 +517,8 @@ def get_movies_anthology(theater, date):
     border = (days[iday + 1] if iday < len(days) - 1 else
               soup.find('div', id='footer'))
 
-    next_movies = days[iday].findAllNext('div', class_='showing-details')
-    prev_movies = border.findAllPrevious('div', class_='showing-details')
+    next_movies = days[iday].find_all_next('div', class_='showing-details')
+    prev_movies = border.find_all_previous('div', class_='showing-details')
 
     movies = list(set(next_movies) & set(prev_movies)) # get intersection b/w borders
 
@@ -738,15 +742,19 @@ def get_movies_nitehawk(theater, date):
     """
     BASE_URL = 'https://nitehawkcinema.com/{}/{}'
 
-    d_theaters = {'nitehawk cinema': 'williamsburg',
-                  'nitehawk prospect park': 'prospectpark'}
+    D_THEATERS = {
+        'nitehawk': 'williamsburg',
+        'nitehawk prospect park': 'prospectpark'
+    }
 
-    soup = soup_me(BASE_URL.format(d_theaters[theater], date))
+    soup = soup_me(BASE_URL.format(D_THEATERS[theater.lower()], date))
 
     movie_names = [movie.text for movie in soup('div', class_='show-title')]
 
+    PATTERN = re.compile('m.*$', re.I)
+
     movie_datetimes = [
-        ['{} @ {}'.format(date, t.text.strip())
+        ['{} @ {}'.format(date, re.sub(PATTERN, 'm', t.text.strip())) # ignore any junk after {a,p}m
         for t in times('a', class_='showtime')]
         for times in soup('div', class_='showtimes-container clearfix')]
 
