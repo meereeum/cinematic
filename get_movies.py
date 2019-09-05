@@ -54,7 +54,9 @@ def get_movies(theater, date, **kwargs):
         regent_square_theater=get_movies_pghfilmmakers,
         harris_theater=get_movies_pghfilmmakers,
         melwood_screening_room=get_movies_pghfilmmakers,
-        row_house_cinema=get_movies_rowhouse
+        the_manor=get_movies_manor,
+        row_house_cinema=get_movies_rowhouse,
+        the_waterfront=get_movies_amc
     )
     action = D_ACTIONS.get(theater.replace(' ', '_'),
                            get_movies_google) # default to google search

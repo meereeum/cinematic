@@ -9,7 +9,8 @@ from dateutil import parser as dparser
 from more_itertools import split_before
 
 from CLIppy import AttrDict, convert_date, flatten, json_me, safe_encode, soup_me
-from utils import combine_times, error_str, filter_movies, filter_past, index_into_days
+from utils import (clean_datetime, combine_times, error_str, index_into_days,
+                   filter_movies, filter_past)
 
 
 def get_movies_google(theater, date, *args, **kwargs):
@@ -70,7 +71,7 @@ def get_movies_google(theater, date, *args, **kwargs):
             if isinstance(elem, element.Tag):
                 # time list:
                 if elem.name == 'div' and elem.get('class') == [CLASS.timelist]:
-                    movietype = re.sub(PATTERN, '\\1',
+                    movietype = re.sub(PATTERN, r'\1',
                                        elem.previous.previous.string)
                     types_per_movie.append(movietype) # standard, imax, 3d, ..
                     n += 1
@@ -232,6 +233,44 @@ def get_movies_rowhouse(theater, date):
     movie_names = [m.h2.text.strip() for m in movies]
     movie_datetimes = [['{} @ {}'.format(date, time.text.strip())
                         for time in m('a', class_='showtime')] for m in movies]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
+def get_movies_manor(theater, date):
+    """Get movie names and times from The Manor's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://plugin.retrieverapi.com/getSchedule'
+
+    PARAMS = {'date': date}
+
+    headers = {
+        'Host': 'plugin.retrieverapi.com',
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/60.0',
+        'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Referer': 'https://plugin.retrieverapi.com/embed/4227729?print',
+        'Authorization': 'Basic NDIyNzcyOToxMjM=',
+        'DNT': '1',
+        'Connection': 'keep-alive'
+    }
+    djson = json_me(BASE_URL, PARAMS, headers=headers)
+
+    movies = djson['movies']
+
+    movie_names = [m['movie_name'] for m in movies]
+    movie_datetimes = [
+        [(dparser.parse(show['date_time'])
+                 .strftime('%Y-%m-%d @ %l:%M%P')) # yyyy-mm-dd @ hh:mm {a,p}m
+         for show in m['showtimes']] for m in movies]
 
     movie_times = filter_past(movie_datetimes)
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
@@ -655,7 +694,8 @@ def get_movies_amc(theater, date):
     BASE_URL = 'https://www.amctheatres.com/movie-theatres/{}/{}/showtimes/all/{}/{}/all'
 
     D_THEATERS = {
-        'amc boston common': ('boston', 'amc-boston-common-19')
+        'amc boston common': ('boston', 'amc-boston-common-19'),
+        'the waterfront': ('pittsburgh', 'amc-waterfront-22')
     }
     theaterplace, theatername = D_THEATERS[theater.lower()]
 
@@ -666,12 +706,12 @@ def get_movies_amc(theater, date):
     movie_names = [m.h2.text for m in movies] #soup('h2')]
 
     movie_datetimes = [
-        [['{} @ {}'.format(date, time.text) for time in
-          times('div', class_='Showtime') if not time.find(
-              'div', {'aria-hidden':"true"}).text == 'Sold Out']
+        [['{} @ {}'.format(date, clean_datetime(time.text))
+          for time in times('div', class_='Showtime')
+          if not time.find('div', {'aria-hidden':"true"}).text == 'Sold Out']
         # TODO print sold-out times as xed-out ?
-          for times in m(
-              'div', class_=re.compile('^Showtimes-Section Showtimes-Section'))]
+         for times in m(
+             'div', class_=re.compile('^Showtimes-Section Showtimes-Section'))]
         for m in movies]
 
     # flatten timelists for movies with multiple formats
@@ -751,10 +791,8 @@ def get_movies_nitehawk(theater, date):
 
     movie_names = [movie.text for movie in soup('div', class_='show-title')]
 
-    PATTERN = re.compile('m.*$', re.I)
-
     movie_datetimes = [
-        ['{} @ {}'.format(date, re.sub(PATTERN, 'm', t.text.strip())) # ignore any junk after {a,p}m
+        ['{} @ {}'.format(date, clean_datetime(t.text.strip())) # ignore any junk after {a,p}m
         for t in times('a', class_='showtime')]
         for times in soup('div', class_='showtimes-container clearfix')]
 

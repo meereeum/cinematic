@@ -10,7 +10,11 @@ from more_itertools import groupby_transform
 from CLIppy import get_from_file
 
 
-error_str='[ {} ]'
+
+
+def clean_datetime(dt):
+    PATTERN = re.compile('m.*$', re.I)
+    return re.sub(PATTERN, 'm', dt) # ignore any junk after "{a,p}m"
 
 
 def filter_movies(movie_names, movie_times):
@@ -44,7 +48,7 @@ def filter_past(datetimes, cutoff=None):
     PATTERN = re.compile('m.*$', re.I)
 
     is_past = lambda dt: (
-        dparser.parse(re.sub(PATTERN, 'm', dt.replace('@', ','))) # ignore any junk after "{a,p}m"
+        dparser.parse(clean_datetime(dt.replace('@', ',')))
         - cutoff
     ).total_seconds() < 0
 
