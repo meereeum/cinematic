@@ -28,27 +28,33 @@ def get_movies(theater, date, **kwargs):
         coolidge_corner=get_movies_coolidge,
         kendall_cinema=get_movies_landmark,
         somerville_theatre=get_movies_somerville,
+        amc_boston_common=get_movies_amc,
+        regal_fenway=get_movies_showtimes,
         # nyc:
         alamo_drafthouse_brooklyn=get_movies_alamo,
         angelika_film_center=get_movies_village_east_or_angelika,
         anthology=get_movies_anthology,
+        bam_rose_cinemas=get_movies_bam,
         cinema_village=get_movies_cinema_village,
+        cobble_hill_cinemas=get_movies_cobble_hill,
         film_forum=get_movies_film_forum,
         film_noir=get_movies_film_noir,
         ifc=get_movies_ifc,
         loews_jersey_theater=get_movies_loews_theater,
         lincoln_center=get_movies_filmlinc,
         metrograph=get_movies_metrograph,
-        nitehawk_cinema=get_movies_nitehawk,
+        nitehawk=get_movies_nitehawk,
         nitehawk_prospect_park=get_movies_nitehawk,
         quad_cinema=get_movies_quad,
         syndicated_bk=get_movies_syndicated,
+        ua_court_st=get_movies_showtimes,
         village_east_cinema=get_movies_village_east_or_angelika,
         #videology=get_movies_videology, # RIP
         # pgh:
         regent_square_theater=get_movies_pghfilmmakers,
         harris_theater=get_movies_pghfilmmakers,
-        melwood_screening_room=get_movies_pghfilmmakers
+        melwood_screening_room=get_movies_pghfilmmakers,
+        row_house_cinema=get_movies_rowhouse
     )
     action = D_ACTIONS.get(theater.replace(' ', '_'),
                            get_movies_google) # default to google search
