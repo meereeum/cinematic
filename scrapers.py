@@ -1,3 +1,4 @@
+from datetime import datetime
 from itertools import chain
 import json
 import re
@@ -347,17 +348,13 @@ def get_movies_film_forum(theater, date):
     soup = soup_me(BASE_URL)
 
     try:
-        assert not soup.text.startswith('Request unsuccessful'), soup.text
+        assert not soup.meta.attrs['name'] == 'robots', 'robots'
     except(AssertionError) as e:
         print(error_str.format(e)) # error msg only
         return [], []              # blocked from getting movies :(
 
-    try:
-        days = [d.text for d in (soup.find('div', class_='sidebar-container')
-                                     .findAll('li'))]
-    except(AttributeError) as e:
-        import IPython; IPython.embed()
-        return [], []              # blocked from getting movies :(
+    days = [d.text for d in (soup.find('div', class_='sidebar-container')
+                                 .findAll('li'))]
     iday = index_into_days(days, date=date)
 
     day = soup.find('div', id='tabs-{}'.format(iday))
@@ -419,7 +416,7 @@ def get_movies_cinema_village(theater, date):
             for day in soup('a', {'data-toggle': 'tab'})]
     iday = index_into_days(days, date=date)
 
-    day = soup.find('div', id='tabs_default_{}'.format(iday))
+    day = soup.find('div', id='tab_default_{}'.format(iday))
 
     movie_names = [movie.text for movie in day('a')]
     movie_datetimes = [['{} @ {}'.format(date, time.text)
@@ -648,8 +645,8 @@ def get_movies_filmlinc(theater, date):
     movie_names = [movie['title'] for movie in djson]
 
     movie_datetimes = [
-        (datetime.fromtimestamp(movie['start'] / 1000) # epoch (in ms) -> yyyy-mm-dd @ hh:mm
-                 .strftime('%Y-%m-%d @ %l:%M'))
+        (datetime.fromtimestamp(movie['start'] / 1000) # epoch (in ms) ->
+                 .strftime('%Y-%m-%d @ %l:%M%P'))      # yyyy-mm-dd @ hh:mm {a,p}m
         for movie in djson]
 
     movie_times = filter_past(movie_datetimes)
