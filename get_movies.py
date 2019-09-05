@@ -23,20 +23,32 @@ def get_movies(theater, date, **kwargs):
     theater = theater.lower()
 
     D_ACTIONS = dict(
+        # bos:
+        brattle_theatre=get_movies_brattle,
+        coolidge_corner=get_movies_coolidge,
+        kendall_cinema=get_movies_landmark,
+        somerville_theatre=get_movies_somerville,
+        # nyc:
         alamo_drafthouse_brooklyn=get_movies_alamo,
+        angelika_film_center=get_movies_village_east_or_angelika,
+        anthology=get_movies_anthology,
         cinema_village=get_movies_cinema_village,
         film_forum=get_movies_film_forum,
         film_noir=get_movies_film_noir,
         ifc=get_movies_ifc,
+        loews_jersey_theater=get_movies_loews_theater,
+        lincoln_center=get_movies_filmlinc,
         metrograph=get_movies_metrograph,
+        nitehawk_cinema=get_movies_nitehawk,
+        nitehawk_prospect_park=get_movies_nitehawk,
         quad_cinema=get_movies_quad,
         syndicated_bk=get_movies_syndicated,
-        village_east_cinema=get_movies_village_east,
+        village_east_cinema=get_movies_village_east_or_angelika,
         #videology=get_movies_videology, # RIP
+        # pgh:
         regent_square_theater=get_movies_pghfilmmakers,
         harris_theater=get_movies_pghfilmmakers,
-        melwood_screening_room=get_movies_pghfilmmakers,
-        loews_jersey_theater=get_movies_loews_theater
+        melwood_screening_room=get_movies_pghfilmmakers
     )
     action = D_ACTIONS.get(theater.replace(' ', '_'),
                            get_movies_google) # default to google search

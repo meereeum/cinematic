@@ -117,9 +117,14 @@ def index_into_days(days, date=None):
     date = dparser.parse(date) if date is not None else datetime.now()
 
     # get offset from day0 (which is prob today, but not sure about cutoff for today vs tomorrow)
+    # this way, works for a list that says only: "wed, thu, fri, sat, sun, mon, tue, wed"
     iday = (date - dparser.parse(days[0])).days
     assert 0 <= iday <= len(days) - 1, '{} !<= {} !<= {}'.format(0, iday, len(days) - 1)
-    assert (date - dparser.parse(days[iday])).days % 7 == 0, '{} != week multiple of {}'.format(
-        days[iday], date)
+
+    try: # BUT, sometimes will skip a day
+        assert (date - dparser.parse(days[iday])).days % 7 == 0 #, '{} != week multiple of {}'.format(days[iday], date)
+    except(AssertionError):
+        # then, fall back to direct indexing
+        iday = [dparser.parse(day) for day in days].index(date)
 
     return iday

@@ -159,10 +159,10 @@ def get_movies_film_noir(theater, date):
     movie_names = [movie_div.text for movie_div in movie_divs]
 
     # get times filtered by past
-    movie_datetimes = chain.from_iterable((
+    movie_datetimes = list(chain.from_iterable((
         [' @ '.join((time_div['datetime'], time_div.text)) for time_div in
          movie_div.next.next.next('time', class_='event-time-12hr-start')]
-        for movie_div in movie_divs))
+        for movie_div in movie_divs)))
     movie_times = filter_past(movie_datetimes)
 
     # filter movies with no future times
@@ -342,12 +342,22 @@ def get_movies_film_forum(theater, date):
     """
     BASE_URL = 'https://filmforum.org/'
 
-    soup_me(BASE_URL) # first request is blocked by ROBOTS
-    sleep(3)
+    # soup_me(BASE_URL) # first request is blocked by ROBOTS
+    # sleep(5)
     soup = soup_me(BASE_URL)
 
-    days = [d.text for d in (soup.find('div', class_='sidebar-container')
-                                 .findAll('li'))]
+    try:
+        assert not soup.text.startswith('Request unsuccessful'), soup.text
+    except(AssertionError) as e:
+        print(error_str.format(e)) # error msg only
+        return [], []              # blocked from getting movies :(
+
+    try:
+        days = [d.text for d in (soup.find('div', class_='sidebar-container')
+                                     .findAll('li'))]
+    except(AttributeError) as e:
+        import IPython; IPython.embed()
+        return [], []              # blocked from getting movies :(
     iday = index_into_days(days, date=date)
 
     day = soup.find('div', id='tabs-{}'.format(iday))
@@ -422,19 +432,227 @@ def get_movies_cinema_village(theater, date):
     return movie_names, movie_times
 
 
-def get_movies_village_east(theater, date):
-    """Get movie names and times from Village East Cinema's website
+def get_movies_village_east_or_angelika(theater, date):
+    """Get movie names and times from Village East Cinema or Angelika Film Center's website
 
     :theater: str
     :date: str (yyyy-mm-dd) (default: today)
     :returns: (list of movie names, list of lists of movie times)
     """
-    BASE_URL = 'https://www.citycinemas.com/villageeast/showtimes-and-tickets/now-playing/{}'
+    BASE_URL = 'https://www.{}/showtimes-and-tickets/now-playing/{}'
 
-    soup = soup_me(BASE_URL.format(date))
+    d_theaters = {'village east cinema': 'citycinemas.com/villageeast',
+                  'angelika film center': 'angelikafilmcenter.com/nyc'}
+
+    soup = soup_me(BASE_URL.format(d_theaters[theater], date))
 
     movie_names = [movie.text for movie in soup('h4', class_='name')]
 
     movie_datetimes = [['{} @ {}'.format(date, time.attrs['value']) for time in
                         times('input', class_='showtime reserved-seating')]
                        for times in soup('div', class_="showtimes-wrapper")]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
+def get_movies_anthology(theater, date):
+    """Get movie names and times from Anthology's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'http://anthologyfilmarchives.org/film_screenings/calendar?view=list'
+
+    soup = soup_me(BASE_URL.format(date))
+
+    days = soup('h3', class_='current-day')
+    iday = index_into_days(
+        [''.join((_ for _ in day.contents if isinstance(_, str))).strip()
+         for day in days], date=date)
+
+    border = (days[iday + 1] if iday < len(days) - 1 else
+              soup.find('div', id='footer'))
+
+    next_movies = days[iday].findAllNext('div', class_='showing-details')
+    prev_movies = border.findAllPrevious('div', class_='showing-details')
+
+    movies = list(set(next_movies) & set(prev_movies)) # get intersection b/w borders
+
+    movie_names = [m.find('span', class_='film-title').text for m in movies]
+
+    movie_datetimes = [['{} @ {}'.format(date, time.text) for time in
+                        movie('a', {'name': re.compile("^showing-")})]
+                       for movie in movies]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
+def get_movies_coolidge(theater, date):
+    """Get movie names and times from Coolidge Corner's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://coolidge.org/showtimes'
+    PARAMS = {'date': date}
+
+    soup = soup_me(BASE_URL, PARAMS)
+
+    movies = soup('div', class_='film-card')
+
+    movie_names = [m.h2.text for m in movies]
+
+    movie_datetimes = [
+        ['{} @ {}'.format(date, time.text) for time in
+         m('span', class_='showtime-ticket__time')] for m in movies]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
+def get_movies_brattle(theater, date):
+    """Get movie names and times from Brattle Theater's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://www.brattlefilm.org/category/calendar-2'
+
+    soup = soup_me(BASE_URL)
+
+    PATTERN = re.compile('^https://www.brattlefilm.org/{}'.format(
+        date.replace('-', '/')))
+
+    relevant_movies = [
+        movie for movie in soup('span', class_="calendar-list-item")
+        if movie('a', href=PATTERN)]
+
+    movie_names = [m.h2.text for m in relevant_movies]
+
+    PATTERN = re.compile('([0-9])\ ?$')
+
+    movie_datetimes = [
+        ['{} @ {}'.format(date, re.sub(PATTERN, r'\1 pm', time)) # only last time is labeled explicitly
+        for time in m.li.text.replace('at ', '').split(',')]
+        for m in relevant_movies]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
+def get_movies_somerville(theater, date):
+    """Get movie names and times from Somerville Theater's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://somervilletheatre.com/wp-content/themes/somerville/showtimes.xml'
+    
+    soup = soup_me(BASE_URL)
+
+    movies = soup('filmtitle')
+
+    movie_names = [m.shortname.text for m in movies] # /or/ m.find('name').text
+
+    convert = lambda date: (date[i:j] for i,j in ((4,8),(0,2),(2,4))) # mmddyyyy -> (yyyy, mm, dd)
+
+    movie_datetimes = [
+        ['{}-{}-{} @ {}'.format(*convert(d.text), t.text)
+        for t, d in zip(m('time'), m('date'))
+        if d.text == convert_date(date, fmt_out='%m%d%Y')] for m in movies]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
+def get_movies_landmark(theater, date):
+    """Get movie names and times from Kendall Landmark's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://movie-lmt.peachdigital.com/movies/GetFilmsByCinema/21/151'
+
+    djson = json_me(BASE_URL)
+
+    movie_names = [movie['Title'] for movie in djson['Result']]
+
+    movie_datetimes = [
+        flatten([['{} @ {}'.format(date, t['StartTime']) for t in sesh['Times']
+                  if convert_date(sesh['DisplayDate']) == date] for sesh in seshes])
+        for seshes in (movie['Sessions'] for movie in djson['Result'])]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
+def get_movies_nitehawk(theater, date):
+    """Get movie names and times from Nitehawk's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://nitehawkcinema.com/{}/{}'
+
+    d_theaters = {'nitehawk cinema': 'williamsburg',
+                  'nitehawk prospect park': 'prospectpark'}
+
+    soup = soup_me(BASE_URL.format(d_theaters[theater], date))
+
+    movie_names = [movie.text for movie in soup('div', class_='show-title')]
+
+    movie_datetimes = [
+        ['{} @ {}'.format(date, t.text.strip())
+        for t in times('a', class_='showtime')]
+        for times in soup('div', class_='showtimes-container clearfix')]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
+def get_movies_filmlinc(theater, date):
+    """Get movie names and times from Film at Lincoln Center's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://www.filmlinc.org/wp-content/themes/filmlinc/api-events.php'
+
+    PARAMS = {'start': date, 'end': date}
+
+    djson = json_me(BASE_URL, PARAMS)
+
+    movie_names = [movie['title'] for movie in djson]
+
+    movie_datetimes = [
+        (datetime.fromtimestamp(movie['start'] / 1000) # epoch (in ms) -> yyyy-mm-dd @ hh:mm
+                 .strftime('%Y-%m-%d @ %l:%M'))
+        for movie in djson]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
