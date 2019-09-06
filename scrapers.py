@@ -408,24 +408,25 @@ def get_movies_film_forum(theater, date):
     """
     BASE_URL = 'https://filmforum.org/'
 
-    headers = {
-        'Host': 'filmforum.org',
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/60.0',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cookie': 'exp_last_visit=1540095881; exp_last_activity=1541986743; prod_last_visit=1567621614; prod_last_activity=1567704700; visid_incap_2071502=8iHssZTnTnSmmcBr3w91Wt3MQ10AAAAAQUIPAAAAAACxMng+kgllZnm0qc4wuBX7; prod_tracker=%7B%220%22%3A%22index%22%2C%221%22%3A%22film%2Faga%22%2C%222%22%3A%22index%22%2C%22token%22%3A%220e8a94586278438a8abd9a2e22f6d71dc58ef797d480e691f6f7d52135be3b8604fc9bc72b9f98e33959ea6c363f6da7%22%7D; incap_ses_139_2071502=/FOyW/1BcEwESBAC4NjtAeH/b10AAAAAu5KRM62+voKYu930nS4qZA==; prod_csrf_token=add79bc2b230529b1baee4c15e4742a3599b154f; incap_ses_529_2071502=LeJGc8MKg19kn678pmNXB3xGcV0AAAAAk5FGgxjtbO141Wfk/d5SNg==',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Cache-Control': 'max-age=0, no-cache',
-        'If-Modified-Since': 'Thu, 05 Sep 2019 17:31:41 GMT',
-        'Pragma': 'no-cache'
-    }
+    soup = soup_me(BASE_URL, from_headless=True)
+    # headers = {
+    #     'Host': 'filmforum.org',
+    #     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/60.0',
+    #     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    #     'Accept-Language': 'en-US,en;q=0.5',
+    #     'Accept-Encoding': 'gzip, deflate, br',
+    #     'Cookie': 'exp_last_visit=1540095881; exp_last_activity=1541986743; prod_last_visit=1567621614; prod_last_activity=1567704700; visid_incap_2071502=8iHssZTnTnSmmcBr3w91Wt3MQ10AAAAAQUIPAAAAAACxMng+kgllZnm0qc4wuBX7; prod_tracker=%7B%220%22%3A%22index%22%2C%221%22%3A%22film%2Faga%22%2C%222%22%3A%22index%22%2C%22token%22%3A%220e8a94586278438a8abd9a2e22f6d71dc58ef797d480e691f6f7d52135be3b8604fc9bc72b9f98e33959ea6c363f6da7%22%7D; incap_ses_139_2071502=/FOyW/1BcEwESBAC4NjtAeH/b10AAAAAu5KRM62+voKYu930nS4qZA==; prod_csrf_token=add79bc2b230529b1baee4c15e4742a3599b154f; incap_ses_529_2071502=LeJGc8MKg19kn678pmNXB3xGcV0AAAAAk5FGgxjtbO141Wfk/d5SNg==',
+    #     'DNT': '1',
+    #     'Connection': 'keep-alive',
+    #     'Upgrade-Insecure-Requests': '1',
+    #     'Cache-Control': 'max-age=0, no-cache',
+    #     'If-Modified-Since': 'Thu, 05 Sep 2019 17:31:41 GMT',
+    #     'Pragma': 'no-cache'
+    # }
 
-    soup_me(BASE_URL) # first request is blocked by ROBOTS
-    sleep(5)
-    soup = soup_me(BASE_URL, headers=headers)
+    # soup_me(BASE_URL) # first request is blocked by ROBOTS
+    # sleep(5)
+    # soup = soup_me(BASE_URL, headers=headers)
 
     try:
         assert not soup.meta.attrs.get('name', '').lower() == 'robots', 'robots'
