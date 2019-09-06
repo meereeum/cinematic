@@ -8,9 +8,10 @@ from bs4 import element
 from dateutil import parser as dparser
 from more_itertools import split_before
 
-from CLIppy import AttrDict, convert_date, flatten, json_me, safe_encode, soup_me
+from CLIppy import (AttrDict, compose_query, convert_date, flatten, safe_encode,
+                    soup_me, json_me)
 from utils import (clean_datetime, combine_times, error_str, index_into_days,
-                   filter_movies, filter_past)
+                   filter_movies, filter_past, NoMoviesException)
 
 
 def get_movies_google(theater, date, *args, **kwargs):
@@ -23,76 +24,132 @@ def get_movies_google(theater, date, *args, **kwargs):
     """
     # date = convert_date(date, fmt_out='%A %m/%d')
     fdate = convert_date(date, fmt_out='%A') # formatted for search
+    fdate = fdate if fdate != convert_date('today', fmt_out='%A') else 'today' #''
     # date = convert_date(date, fmt_out='%m/%d') # /%y')
 
     BASE_URL = 'https://www.google.com/search'
-    # PARAMS = {'q': safe_encode(theater, date, *args, **kwargs)}
-    PARAMS = {'q': safe_encode('showtimes at', theater, fdate,
-                               *args, **kwargs)}
 
-    soup = soup_me(BASE_URL, PARAMS)
+    PARAMS = {
+        'q': safe_encode('showtimes', '"{}"'.format(theater), fdate),
+        'ie': 'utf-8',
+        'client': 'firefox-b-1-e'
+    }
+
+    # soup = soup_me(BASE_URL, PARAMS) #, **kwargs)
+    # ^ passing params directly to requests gives problems with extraneous % encoding
+    soup = soup_me(compose_query(BASE_URL, PARAMS))
 
     # TODO google static html only returns up to 10 movies..
 
     CLASS = AttrDict(
-            movie = 'JLxn7',
-            date = 'r0jJne AyRB2d',
-            timelist = 'e3wEkd',
-            time = 'ovxuVd',
-            divider = 'Qlgfwc'
+            timelist = 'lr_c_fcc',
+            time = re.compile('^(std-ts)|(lr_c_stnl)$'),
+            fmt = 'lr_c_vn'
     )
 
     try:
+        relevant_div = soup.find('div', {'data-date': True})
+
         # check date
-        date_found, = soup('div', class_=CLASS.date)[0].span.contents
+        date_found = relevant_div.attrs['data-date']
         assert convert_date(date_found) == date, '{} != {}'.format(date_found, date)
 
-        time_contents2string = lambda t: ''.join((str(t[0]), *t[1].contents))
+        movies = relevant_div('div', {'data-movie-name': True})
 
-        # no need to filter - tags only correspond to upcoming movie times
-        movie_names = [movie_div.a.contents[0] for movie_div
-                       in soup('div', class_=CLASS.movie)]
-        movie_times = [[time_contents2string(time_div.contents)
-                        for time_div in time_divs('div', class_=CLASS.time)]
-                       for time_divs in soup('div', class_=CLASS.timelist)]
+    except(AssertionError, AttributeError) as e:
+        # print(error_str.format(e)) # error msg only
+        # movies = []                # no movies found for desired theater/date
+        raise(NoMoviesException(e))
 
-    except(AssertionError, IndexError) as e:
-        print(error_str.format(e))        # error msg only
-        movie_names, movie_times = [], [] # no movies found for desired date
+    movie_names = [m.span.text for m in movies]
 
-    if len(movie_names) != len(movie_times): # multiple timelists per movie
-        n = 0
-        n_timelists_per_movie = []
-        types_per_movie = []
+    movie_times = [ # nested times per format per movie
+        [[time.text for time in timelst('div', class_=CLASS.time)]
+         for timelst in m('div', class_=CLASS.timelist)] for m in movies]
 
-        PATTERN = re.compile('^.*\((.*)\)') # capture movietype in parens
+    movie_formats = [
+        [getattr(timelst.find('div', class_=CLASS.fmt), 'text', None) # default if no format listed
+         for timelst in m('div', class_=CLASS.timelist)] for m in movies]
 
-        for elem in soup('div', class_=CLASS.movie)[0].nextGenerator(): # after 1st movie
-            if isinstance(elem, element.Tag):
-                # time list:
-                if elem.name == 'div' and elem.get('class') == [CLASS.timelist]:
-                    movietype = re.sub(PATTERN, r'\1',
-                                       elem.previous.previous.string)
-                    types_per_movie.append(movietype) # standard, imax, 3d, ..
-                    n += 1
+    # flatten timelists for movies with multiple formats
+    n_timelists_per_movie = [len(timelsts) for timelsts in movie_times]
+    movie_names = list(chain.from_iterable(
+        [name] * n for name, n in zip(movie_names, n_timelists_per_movie)))
 
-                # movie divider:
-                elif elem.name == 'td' and elem.get('class') == [CLASS.divider]:
-                    n_timelists_per_movie.append(n)
-                    n = 0
+    # annotate with format
+    movie_times = [(times if fmt == 'Standard' or not times or not fmt else
+                    times + ['[ {} ]'.format(fmt)])
+                   for times, fmt in zip(flatten(movie_times),
+                                         flatten(movie_formats))]
 
-        n_timelists_per_movie.append(n)
+    # no need to filter - tags only correspond to upcoming movie times
+    return movie_names, movie_times
 
-        movie_names = list(chain.from_iterable(
-            [name] * n for name, n in zip(movie_names, n_timelists_per_movie)))
-        movie_times = [(times if movie_type == 'Standard' else
-                        times + ['[ {} ]'.format(movie_type)])
-                       for times, movie_type in zip(movie_times, types_per_movie)]
 
-        assert len(movie_names) == len(movie_times), '{} != {}'.format(
-            len(movie_names), len(movie_times))
+def get_movies_showtimes(theater, date):
+    """Get movie names and times from Showtimes' website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://www.showtimes.com/movie-theaters/{}'
+
+    D_THEATERS = {
+        'regal fenway': 'regal-fenway-stadium-13-rpx-6269',
+        'ua court st': 'ua-court-street-stadium-12-rpx-6608'
+    }
+
+    try:
+        soup = soup_me(BASE_URL.format(D_THEATERS.get(theater.lower(),
+                                                      get_theaterpg_showtimes(theater)))) # fallback for unlisted theater
+
+        movies = soup('li', class_='movie-info-box')
+
+    except(Exception) as e:
+        print(error_str.format(e)) # error msg only
+        movies = []                # no matching theater
+
+    movie_names = [
+        ''.join((re.sub('[\r\n].*', '', name.text.strip())
+                 for name in m('h2', class_='media-heading'))) for m in movies]
+
+    nested_buttons = [ # [[day, time, time, day, time], ..] -> [[[day, time, time], [day, time]], ..]
+        list(split_before((button.text for button in m('button', type='button')),
+                          lambda txt: ',' in txt)) for m in movies]
+
+    movie_datetimes = [flatten(
+        [['{} @ {}'.format(day.replace(':',''), time) for time in times]
+         for day, *times in buttons if (convert_date(day.replace(':',''))
+                                        == date)])
+         for buttons in nested_buttons]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     return movie_names, movie_times
+
+
+def get_theaterpg_showtimes(theater):
+    """Get theater page from Showtimes' website
+
+    :theater: str
+    :returns: partial URL (str)
+    """
+    BASE_URL = 'https://www.showtimes.com/search'
+
+    PARAMS = {'query': safe_encode(theater)}
+
+    soup = soup_me(BASE_URL, PARAMS)
+
+    PATTERN = re.compile('^/movie-theaters/')
+
+    theater_pgs = [re.sub(PATTERN, '', hit.attrs['href'])
+                   for hit in soup('a', href=PATTERN)]
+    try:
+        return theater_pgs[0] # best hit
+    except(IndexError) as e:
+        e.args = ('No matching theater on Showtimes',)
 
 
 def get_movies_metrograph(theater, date):
@@ -761,44 +818,6 @@ def get_movies_amc(theater, date):
 
     #movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times)) # TODO combine does not know formats
     movie_names, movie_times = filter_movies(movie_names, movie_times)
-
-    return movie_names, movie_times
-
-
-def get_movies_showtimes(theater, date):
-    """Get movie names and times from Showtimes' website
-
-    :theater: str
-    :date: str (yyyy-mm-dd) (default: today)
-    :returns: (list of movie names, list of lists of movie times)
-    """
-    BASE_URL = 'https://www.showtimes.com/movie-theaters/{}'
-
-    D_THEATERS = {
-        'regal fenway': 'regal-fenway-stadium-13-rpx-6269',
-        'ua court st': 'ua-court-street-stadium-12-rpx-6608'
-    }
-
-    soup = soup_me(BASE_URL.format(D_THEATERS[theater.lower()]))
-
-    movies = soup('li', class_='movie-info-box')
-
-    movie_names = [
-        ''.join((re.sub('[\r\n].*', '', name.text.strip())
-                 for name in m('h2', class_='media-heading'))) for m in movies]
-
-    nested_buttons = [ # [[day, time, time, day, time], ..] -> [[[day, time, time], [day, time]], ..]
-        list(split_before((button.text for button in m('button', type='button')),
-                          lambda txt: ',' in txt)) for m in movies]
-
-    movie_datetimes = [flatten(
-        [['{} @ {}'.format(day.replace(':',''), time) for time in times]
-         for day, *times in buttons if (convert_date(day.replace(':',''))
-                                        == date)])
-         for buttons in nested_buttons]
-
-    movie_times = filter_past(movie_datetimes)
-    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     return movie_names, movie_times
 

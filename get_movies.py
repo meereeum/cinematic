@@ -8,7 +8,7 @@ from CLIppy import convert_date, fail_gracefully, get_from_file, pprint_header_w
 
 from ratings import get_ratings
 from scrapers import *
-from utils import filter_by_rating, get_theaters
+from utils import filter_by_rating, get_theaters, NoMoviesException
 
 # TODO fail gracefully around some central fn
 
@@ -38,7 +38,7 @@ def get_movies(theater, date, **kwargs):
         bam_rose_cinemas=get_movies_bam,
         cinema_village=get_movies_cinema_village,
         cobble_hill_cinemas=get_movies_cobble_hill,
-        film_forum=get_movies_film_forum,
+        # film_forum=get_movies_film_forum, # custom is slow - have to open headless => fall back to default
         film_noir=get_movies_film_noir,
         ifc=get_movies_ifc,
         loews_jersey_theater=get_movies_loews_theater,
@@ -59,8 +59,11 @@ def get_movies(theater, date, **kwargs):
         row_house_cinema=get_movies_rowhouse,
         the_waterfront=get_movies_amc
     )
-    action = D_ACTIONS.get(theater.replace(' ', '_'),
-                           get_movies_google) # default to google search
+    try:
+        action = D_ACTIONS.get(theater.replace(' ', '_'), # plan A
+                               get_movies_google)         # plan B: default to google search
+    except(NoMoviesException):
+        action = get_movies_showtimes                     # plan C: redefault to showtimes.com search
 
     return action(theater, date)
 

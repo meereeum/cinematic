@@ -10,6 +10,8 @@ from more_itertools import groupby_transform
 from CLIppy import get_from_file
 
 
+error_str   = '[ {} ]'
+# xed_out_str = '\e[9m{}\e[0m'
 
 
 def clean_datetime(dt):
@@ -135,3 +137,7 @@ def index_into_days(days, date=None):
         iday = [dparser.parse(day) for day in days].index(date)
 
     return iday
+
+
+class NoMoviesException(Exception):
+    pass
