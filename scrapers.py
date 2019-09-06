@@ -676,11 +676,12 @@ def get_movies_somerville(theater, date):
 
     movie_names = [m.shortname.text for m in movies] # /or/ m.find('name').text
 
-    convert = lambda date: (date[i:j] for i,j in ((4,8),(0,2),(2,4))) # mmddyyyy -> (yyyy, mm, dd)
+    convert = lambda date: date[-4:] + date[:-4] # mmddyyyy -> yyyymmdd
 
     movie_datetimes = [
-        ['{}-{}-{} @ {}'.format(*convert(d.text), t.text)
-        for t, d in zip(m('time'), m('date'))
+        [(dparser.parse(' '.join((convert(d.text), t.text))) # yyyymmdd hhmm ->
+                 .strftime('%Y-%m-%d @ %l:%M%P'))            # yyyy-mm-dd @ hh:mm {a,p}m
+        for d, t in zip(m('date'), m('time'))
         if d.text == convert_date(date, fmt_out='%m%d%Y')] for m in movies]
 
     movie_times = filter_past(movie_datetimes)
