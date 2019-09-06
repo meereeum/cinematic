@@ -59,6 +59,7 @@ def get_movies_google(theater, date, *args, **kwargs):
     except(AssertionError, AttributeError) as e:
         # print(error_str.format(e)) # error msg only
         # movies = []                # no movies found for desired theater/date
+        print(error_str.format('No matching theater on google'))
         raise(NoMoviesException(e))
 
     movie_names = [m.span.text for m in movies]
@@ -149,7 +150,8 @@ def get_theaterpg_showtimes(theater):
     try:
         return theater_pgs[0] # best hit
     except(IndexError) as e:
-        e.args = ('No matching theater on Showtimes',)
+        e.args = ('No matching theater on showtimes.com',)
+        raise(e)
 
 
 def get_movies_metrograph(theater, date):

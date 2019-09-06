@@ -59,11 +59,14 @@ def get_movies(theater, date, **kwargs):
         row_house_cinema=get_movies_rowhouse,
         the_waterfront=get_movies_amc
     )
-    try:
-        action = D_ACTIONS.get(theater.replace(' ', '_'), # plan A
-                               get_movies_google)         # plan B: default to google search
-    except(NoMoviesException):
-        action = get_movies_showtimes                     # plan C: redefault to showtimes.com search
+
+    def fallback(*args, **kwargs):
+        try:
+            return get_movies_google(*args, **kwargs)    # default to google search
+        except(NoMoviesException):
+            return get_movies_showtimes(*args, **kwargs) # or, last ditch effort, showtimes.com search
+
+    action = D_ACTIONS.get(theater.replace(' ', '_'), fallback)
 
     return action(theater, date)
 
