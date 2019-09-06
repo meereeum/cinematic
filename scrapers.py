@@ -633,6 +633,34 @@ def get_movies_brattle(theater, date):
     return movie_names, movie_times
 
 
+def get_movies_hfa(theater, date):
+    """Get movie names and times from Harvard Film Archive's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://harvardfilmarchive.org'
+
+    soup = soup_me(BASE_URL)
+
+    try:
+        day, = [d for d in soup('div', class_='grid m-calendar__row')
+                if d.time.attrs['datetime'] == date]
+    except(ValueError): # no matching days
+        return [], []
+
+    movie_names = [m.text.strip() for m in day('h5')]
+
+    movie_datetimes = ['{} @ {}'.format(date, time.text)
+                       for time in day('div', class_='event__time')]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
 def get_movies_somerville(theater, date):
     """Get movie names and times from Somerville Theater's website
 

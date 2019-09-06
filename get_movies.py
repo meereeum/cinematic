@@ -26,6 +26,7 @@ def get_movies(theater, date, **kwargs):
         # bos:
         brattle_theatre=get_movies_brattle,
         coolidge_corner=get_movies_coolidge,
+        harvard_film_archive=get_movies_hfa,
         kendall_cinema=get_movies_landmark,
         somerville_theatre=get_movies_somerville,
         amc_boston_common=get_movies_amc,
