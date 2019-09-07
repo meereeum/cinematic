@@ -1,10 +1,10 @@
 import argparse
 from functools import partial, reduce
 from itertools import zip_longest
-from operator import add
+import operator
 import re
 
-from CLIppy import convert_date, fail_gracefully, get_from_file, pprint_header_with_lines
+from CLIppy import convert_date, get_from_file, pprint_header_with_lines
 
 from scrapers import *
 from utils import filter_by_rating, get_theaters, NoMoviesException
@@ -94,7 +94,7 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
         return
 
     SPACER = 2
-    SEP_CHAR = '|' if reduce(add, movie_times) else '' # no SEP if no times (list of empty strs)
+    SEP_CHAR = '|' if reduce(operator.add, movie_times) else '' # no SEP if no times (list of empty strs)
 
     PATTERN = re.compile(', \[') # match movie type in timelist
 
@@ -180,7 +180,6 @@ if __name__ == '__main__':
 
     # do stuff
     need_ratings = args.filter_by > 0 or not args.simple
-
     if need_ratings:
         from ratings import get_ratings
         d_cached = {}
@@ -203,4 +202,5 @@ if __name__ == '__main__':
                                                 movie_ratings,
                                                 args.filter_by),
                      sorted_=args.sorted)
-    print()
+    if theaters:
+        print()
