@@ -97,13 +97,15 @@ def get_movies_showtimes(theater, date):
     BASE_URL = 'https://www.showtimes.com/movie-theaters/{}'
 
     D_THEATERS = {
-        'regal fenway': 'regal-fenway-stadium-13-rpx-6269',
-        'ua court st': 'ua-court-street-stadium-12-rpx-6608'
+        'regal fenway': lambda *args: 'regal-fenway-stadium-13-rpx-6269',
+        'ua court st':  lambda *args: 'ua-court-street-stadium-12-rpx-6608'
     }
 
     try:
-        soup = soup_me(BASE_URL.format(D_THEATERS.get(theater.lower(),
-                                                      get_theaterpg_showtimes(theater)))) # fallback for unlisted theater
+        soup = soup_me(BASE_URL.format(
+            D_THEATERS.get(theater.lower(),
+                           get_theaterpg_showtimes)(theater))) # fallback for unlisted theater
+                                                               # (phrased as functions, so theaterpg scraper won't run until necessary)
 
         movies = soup('li', class_='movie-info-box')
 
