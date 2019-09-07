@@ -1,10 +1,12 @@
 import requests
 
-from secrets import API_KEY
-
-
-## TODO
-# http://omdbapi.com/apikey.aspx
+try:
+    from secrets import API_KEY
+except(ImportError, ModuleNotFoundError): # missing secrets
+    print("\nCan't get ratings w/o an API key ! Running in simple mode.")
+    print('[ To fix: 1. Register @ http://omdbapi.com/apikey.aspx            ]')
+    print('[         2. Save key as variable API_KEY in cinematic/secrets.py ]')
+    pass
 
 
 def get_ratings_per_movie(movie_name):
@@ -47,6 +49,8 @@ def get_ratings(movie_names, d_cached):
     :d_cached: dictionary of cached ratings {'name': float(rating)}
     :returns: (list of ratings, updated dictionary)
     """
+    movie_names = [m.lower() for m in movie_names] # consistency
+
     movie_rating_ds = [d_cached.get(movie_name, # reuse if already cached
                                     get_ratings_per_movie(movie_name))
                        for movie_name in movie_names]

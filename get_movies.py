@@ -6,7 +6,6 @@ import re
 
 from CLIppy import convert_date, fail_gracefully, get_from_file, pprint_header_with_lines
 
-from ratings import get_ratings
 from scrapers import *
 from utils import filter_by_rating, get_theaters, NoMoviesException
 
@@ -180,15 +179,22 @@ if __name__ == '__main__':
         moviegetter = partial(get_movies, date=convert_date(date))
 
     # do stuff
-    d_cached = {}
+    need_ratings = args.filter_by > 0 or not args.simple
+
+    if need_ratings:
+        from ratings import get_ratings
+        d_cached = {}
 
     for theater in theaters:
         print()
 
         movie_names, movie_times = moviegetter(theater=theater)
 
-        if args.filter_by > 0 or not args.simple:
-            movie_ratings, d_cached = get_ratings(movie_names, d_cached)
+        if need_ratings:
+            try:
+                movie_ratings, d_cached = get_ratings(movie_names, d_cached)
+            except: # missing secrets
+                movie_ratings = []
         else:
             movie_ratings = []
 
