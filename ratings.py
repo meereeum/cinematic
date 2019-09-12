@@ -54,7 +54,7 @@ def get_ratings(movie_names, d_cached):
     movie_rating_ds = [d_cached.get(movie_name, # reuse if already cached
                                     get_ratings_per_movie(movie_name))
                        for movie_name in movie_names]
-    movie_ratings = [d.get('Rotten Tomatoes', # 1st choice review
+    movie_ratings = [d.get('Rotten Tomatoes',                    # 1st choice review
                            d.get('Internet Movie Database', -1)) # fallbacks
                      for d in movie_rating_ds]
 
