@@ -10,13 +10,15 @@ from more_itertools import groupby_transform
 from CLIppy import get_from_file
 
 
+DATETIME_SEP = ' @ '
+
 error_str   = '[ {} ]'
 # xed_out_str = '\e[9m{}\e[0m'
 
 
-def clean_datetime(dt):
+def clean_time(t):
     PATTERN = re.compile('m.*$', re.I)
-    return re.sub(PATTERN, 'm', dt) # ignore any junk after "{a,p}m"
+    return re.sub(PATTERN, 'm', t) # ignore any junk after "{a,p}m"
 
 
 def filter_movies(movie_names, movie_times):
@@ -35,27 +37,29 @@ def filter_movies(movie_names, movie_times):
     return list(movie_names), list(movie_times)
 
 
-def filter_past(datetimes, cutoff=None):
+def filter_past(datetimes, cutoff=None, sep=DATETIME_SEP):
     """Filter datetimes before cutoff
 
     :datetimes: list of strs ("date @ time") OR list of lists of strs
     :cutoff: datetime str (default: now)
-    :returns: list of lists of strs (or emptylist if past)
+    :returns: list of lists of (time) strs (or emptylist if past)
     """
     cutoff = datetime.now() if cutoff is None else dparser.parse(cutoff)
 
     if not datetimes:
         return []
 
-    PATTERN = re.compile('m.*$', re.I)
+    def clean_datetime(dt, sep=sep):
+        date, time = dt.split(sep)
+        return ', '.join((date, clean_time(time)))
 
     is_past = lambda dt: (
-        dparser.parse(clean_datetime(dt.replace('@', ',')))
+        dparser.parse(clean_datetime(dt))
         - cutoff
     ).total_seconds() < 0
 
     # date @ time -> time
-    strftime = lambda dt: dt.split(' @ ')[1].replace(' ', '').lower()
+    strftime = lambda dt: dt.split(DATETIME_SEP)[-1].replace(' ', '').lower()
 
     is_nested_list = isinstance(datetimes[0], list)
 

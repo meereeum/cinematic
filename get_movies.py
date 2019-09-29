@@ -111,7 +111,9 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
         else:
             rating_str = ''
 
-        time_str = re.sub(PATTERN, '  [', ', '.join(times)) # reformat movie type
+        # time_str = re.sub(PATTERN, '  [', ', '.join(times)) # reformat movie type
+        time_str = re.sub(PATTERN, '  [', ', '.join(('{:>7}'.format(t) # reformat movie type
+                                                     for t in times))) # & align time spacing
 
         return '{}{:{}}{:^{}}{}'.format(rating_str,
                                         name, col_space,
