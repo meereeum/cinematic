@@ -413,9 +413,9 @@ def get_movies_alamo(theater, date):
     djson = json_me(BASE_URL)
 
     # filter months -> weeks -> day
-    day, = flatten([[d for d in week['Days'] if d['Date'].startswith(date)]
-                    for week in flatten(month['Weeks'] for month in
-                                        djson['Calendar']['Cinemas'][0]['Months'])])
+    day, *_ = flatten([[d for d in week['Days'] if d['Date'].startswith(date)]
+                       for week in flatten(month['Weeks'] for month in
+                                           djson['Calendar']['Cinemas'][0]['Months'])])
     movies = day['Films']
 
     movie_names = [movie['FilmName'] for movie in movies]
