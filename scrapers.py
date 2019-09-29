@@ -674,17 +674,22 @@ def get_movies_brattle(theater, date):
 
     soup = soup_me(BASE_URL)
 
-    PATTERN = re.compile('^https://www.brattlefilm.org/{}'.format(
-        date.replace('-', '/')))
+    # PATTERN = re.compile('^https://www.brattlefilm.org/{}'.format(
+    #     date.replace('-', '/')))
 
-    relevant_movies = [
-        movie for movie in soup('span', class_="calendar-list-item")
-        if movie('a', href=PATTERN)]
+    # relevant_movies = [
+    #     movie for movie in soup('span', class_="calendar-list-item")
+    #     if movie('a', href=PATTERN)]
+
+    PATTERN = re.compile('y{} m{} d{}'.format(*date.split('-')))
+    relevant_movies = soup('div', class_=re.compile('y2019 m10 d26'))
 
     movie_names = [m.h2.text for m in relevant_movies]
+    movie_formats = [
+        ', '.join((tag.replace('tag-', '') for tag in m['class']
+                   if tag.startswith('tag-'))) for m in relevant_movies]
 
     PATTERN = re.compile('([0-9])\ ?$')
-
     movie_datetimes = [
         [DATETIME_SEP.join((date, re.sub(PATTERN, r'\1 pm', time))) # only last time is labeled explicitly
         for time in m.li.text.replace('at ', '').split(',')]
@@ -692,6 +697,11 @@ def get_movies_brattle(theater, date):
 
     movie_times = filter_past(movie_datetimes)
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    # annotate with format
+    movie_times = [(times if not times or not fmt else
+                    times + ['[ {} ]'.format(fmt)])
+                   for times, fmt in zip(movie_times, movie_formats)]
 
     return movie_names, movie_times
 
