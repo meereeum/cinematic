@@ -22,10 +22,9 @@ def get_movies_google(theater, date, *args, **kwargs):
     :args, kwargs: other search terms, e.g. zip code
     :returns: (list of movie names, list of lists of movie times)
     """
-    # date = convert_date(date, fmt_out='%A %m/%d')
-    fdate = convert_date(date, fmt_out='%A') # formatted for search
-    fdate = fdate if fdate != convert_date('today', fmt_out='%A') else 'today' #''
-    # date = convert_date(date, fmt_out='%m/%d') # /%y')
+    FMT = '%m/%d' # formatted for search
+    fdate = convert_date(date, fmt_out=FMT)
+    fdate = fdate if fdate != convert_date('today', fmt_out=FMT) else 'today' #''
 
     BASE_URL = 'https://www.google.com/search'
 
@@ -611,9 +610,12 @@ def get_movies_anthology(theater, date):
     soup = soup_me(BASE_URL.format(date))
 
     days = soup('h3', class_='current-day')
-    iday = index_into_days(
-        [''.join((_ for _ in day.contents if isinstance(_, str))).strip()
-         for day in days], date=date)
+    try:
+        iday = index_into_days(
+            [''.join((_ for _ in day.contents if isinstance(_, str))).strip()
+             for day in days], date=date)
+    except(AssertionError): # no matching days
+        return [], []
 
     border = (days[iday + 1] if iday < len(days) - 1 else
               soup.find('div', id='footer'))
