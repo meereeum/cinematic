@@ -651,17 +651,18 @@ def get_movies_momi(theater, date):
     :date: str (yyyy-mm-dd) (default: today)
     :returns: (list of movie names, list of lists of movie times)
     """
-    BASE_URL = 'http://www.movingimage.us/visit/calendar/{}/week/type/1'
+    BASE_URL = 'http://www.movingimage.us/visit/calendar/{}/day/type/1'
 
     soup = soup_me(BASE_URL.format(date.replace('-', '/')))
 
     PATTERN = re.compile('calendar/{}'.format(date.replace('-', '/')))
-    relevant_movies = soup('a', href=PATTERN)
+    movies = soup('a', href=PATTERN)
 
-    movie_names = [m.find('span', class_=re.compile("^color")).text for m in relevant_movies]
+    movie_names = [m.find('span', class_=re.compile("^color")).text for m in movies]
 
-    movie_datetimes = [[DATETIME_SEP.join((date, m.em.text.split(' | ')[0]))]
-                       for m in relevant_movies]
+    movie_datetimes = [
+        [DATETIME_SEP.join((date, (m.em.text.split(' | ')[0]
+                                            .replace('.','')))] for m in movies]
 
     movie_times = filter_past(movie_datetimes)
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
