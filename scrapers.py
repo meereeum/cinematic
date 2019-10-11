@@ -644,6 +644,31 @@ def get_movies_anthology(theater, date):
     return movie_names, movie_times
 
 
+def get_movies_momi(theater, date):
+    """Get movie names and times from Museum of the Moving Image's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'http://www.movingimage.us/visit/calendar/{}/week/type/1'
+
+    soup = soup_me(BASE_URL.format(date.replace('-', '/')))
+
+    PATTERN = re.compile('calendar/{}'.format(date.replace('-', '/')))
+    relevant_movies = soup('a', href=PATTERN)
+
+    movie_names = [m.find('span', class_=re.compile("^color")).text for m in relevant_movies]
+
+    movie_datetimes = [[DATETIME_SEP.join((date, m.em.text.split(' | ')[0]))]
+                       for m in relevant_movies]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
 def get_movies_coolidge(theater, date):
     """Get movie names and times from Coolidge Corner's website
 
@@ -745,6 +770,38 @@ def get_movies_hfa(theater, date):
 
     movie_datetimes = [DATETIME_SEP.join((date, time.text))
                        for time in day('div', class_='event__time')]
+
+    movie_times = filter_past(movie_datetimes)
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    return movie_names, movie_times
+
+
+def get_movies_mfa(theater, date):
+    """Get movie names and times from Museum of Fine Arts' website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://www.mfa.org/programs/film'
+
+    PARAMS = {'field_date_value_1': date}
+
+    soup = soup_me(BASE_URL, PARAMS)
+
+    relevant_movies = [
+        div for div in soup('div', class_='col-sm-8')
+        if div.span and convert_date(div.span.contents[0]) == date
+    ]
+    movie_names = [m.a.text for m in relevant_movies]
+
+    def convert(contentlst):
+        date, _, timestr = contentlst
+        start, end = timestr.split('–')
+        return DATETIME_SEP.join((convert_date(date), start))
+
+    movie_datetimes = [convert(m.span.contents) for m in relevant_movies]
 
     movie_times = filter_past(movie_datetimes)
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
