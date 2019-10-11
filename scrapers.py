@@ -662,7 +662,7 @@ def get_movies_momi(theater, date):
 
     movie_datetimes = [
         [DATETIME_SEP.join((date, (m.em.text.split(' | ')[0]
-                                            .replace('.','')))] for m in movies]
+                                            .replace('.',''))))] for m in movies]
 
     movie_times = filter_past(movie_datetimes)
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
