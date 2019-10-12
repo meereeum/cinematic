@@ -726,7 +726,7 @@ def get_movies_brattle(theater, date):
     #     if movie('a', href=PATTERN)]
 
     PATTERN = re.compile('y{} m{} d{}'.format(*date.split('-')))
-    relevant_movies = soup('div', class_=re.compile('y2019 m10 d26'))
+    relevant_movies = soup('div', class_=PATTERN)
 
     movie_names = [m.h2.text for m in relevant_movies]
     movie_formats = [
