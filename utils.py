@@ -17,8 +17,9 @@ error_str   = '[ {} ]'
 
 
 def clean_time(t):
-    PATTERN = re.compile('m.*$', re.I)
-    return re.sub(PATTERN, 'm', t) # ignore any junk after "{a,p}m"
+    PATTERN = re.compile('(^.*[0-9] *((p|a)m)?).*$', re.I)
+    return re.sub(PATTERN, r'\1', t) # ignore any junk after "{a,p}m"
+                                     # (but don't assume present)
 
 
 def filter_movies(movie_names, movie_times):
@@ -59,7 +60,9 @@ def filter_past(datetimes, cutoff=None, sep=DATETIME_SEP):
     ).total_seconds() < 0
 
     # date @ time -> time
-    strftime = lambda dt: dt.split(DATETIME_SEP)[-1].replace(' ', '').lower()
+    PATTERN = re.compile(' *((a|p)m)')
+    strftime = lambda dt: re.sub(PATTERN, r'\1', # rm space before {a,p}m
+                                 dt.split(DATETIME_SEP)[-1].strip().lower())
 
     is_nested_list = isinstance(datetimes[0], list)
 

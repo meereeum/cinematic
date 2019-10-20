@@ -708,7 +708,7 @@ def get_movies_coolidge(theater, date):
 
 
 def get_movies_brattle(theater, date):
-    """Get movie names and times from Brattle Theater's website
+    """Get movie names and times from Brattle Theatre's website
 
     :theater: str
     :date: str (yyyy-mm-dd) (default: today)
@@ -733,16 +733,36 @@ def get_movies_brattle(theater, date):
         ', '.join((tag.replace('tag-', '') for tag in m['class']
                    if tag.startswith('tag-'))) for m in relevant_movies]
 
-    PATTERN = re.compile('([0-9])\ ?$')
+    # only last time is labeled explicitly -- assume rest are p.m. (unless already annotated)
+    DEFAULT_TIME_OF_DAY = 'pm'
+    PATTERN1 = re.compile('^([0-9: apm\.]*)', re.I)                         # capture time
+    PATTERN2 = re.compile('([apm\.]+) ?{}'.format(DEFAULT_TIME_OF_DAY), re.I) # rm extraneous
     movie_datetimes = [
-        [DATETIME_SEP.join((date, re.sub(PATTERN, r'\1 pm', time))) # only last time is labeled explicitly
+        [DATETIME_SEP.join((date, re.sub(PATTERN2, r'\1',                 # 2. strip extraneous default (i.e. if already labeled)
+                                         re.sub(PATTERN1, r'\1{}'.format( # 1. pad with default time just in case
+                                             DEFAULT_TIME_OF_DAY), time))))
         for time in m.li.text.replace('at ', '').split(',')]
         for m in relevant_movies]
 
     movie_times = filter_past(movie_datetimes)
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
-    # annotate with format
+    PATTERN1 = re.compile('^[0-9:]*((p|a)m)?')                  # time only
+    PATTERN2 = re.compile('^[^a-z0-9]*(.*[a-z0-9])[^a-z0-9]*$') # string format only (e.g. no parens)
+
+    # capture extra showing info
+    movie_formats_extra = [[re.sub(PATTERN2, r'\1', re.sub(PATTERN1, '', t)) # extract dirty format, then clean
+                           for t in ts] for ts in movie_times]
+
+    # .. & further clean times
+    movie_times = [[re.match(PATTERN1, t).group(0) for t in ts]
+                   for ts in movie_times]
+    # before possibly re-annotating (per-showtime)
+    movie_times = [[t if not fmt else t + ' [ {} ]'.format(fmt)
+                    for t, fmt in zip(ts, fmts)]
+                   for ts, fmts in zip(movie_times, movie_formats_extra)]
+
+    # annotate with (per-movie) format
     movie_times = [(times if not times or not fmt else
                     times + ['[ {} ]'.format(fmt)])
                    for times, fmt in zip(movie_times, movie_formats)]
