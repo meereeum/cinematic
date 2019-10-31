@@ -123,6 +123,8 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
                                         time_str)
 
     with_rating = (movie_ratings != [])
+    sorted_ = sorted_ and with_rating
+
     movie_strs = [to_pprint_str(name, times, rating, with_rating=with_rating)
                   for name, times, rating in zip_longest(
                           movie_names, movie_times, movie_ratings)]

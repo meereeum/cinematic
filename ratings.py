@@ -1,11 +1,11 @@
 import requests
 
 try:
-    from secrets import API_KEY
-except(ImportError, ModuleNotFoundError): # missing secrets
+    from secret import API_KEY
+except(AttributeError, ImportError, ModuleNotFoundError): # missing secrets
     print("\nCan't get ratings w/o an API key ! Running in simple mode.")
     print('[ To fix: 1. Register @ http://omdbapi.com/apikey.aspx            ]')
-    print('[         2. Save key as variable API_KEY in cinematic/secrets.py ]')
+    print('[         2. Save key as variable API_KEY in cinematic/secret.py ]')
     pass
 
 
