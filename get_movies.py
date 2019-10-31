@@ -187,7 +187,6 @@ if __name__ == '__main__':
     # do stuff
     need_ratings = args.filter_by > 0 or not args.simple
     if need_ratings:
-        from ratings import get_ratings
         d_cached = {}
 
     for theater in theaters:
@@ -197,8 +196,11 @@ if __name__ == '__main__':
 
         if need_ratings:
             try:
+                from ratings import get_ratings
                 movie_ratings, d_cached = get_ratings(movie_names, d_cached)
-            except: # missing secrets
+            except(Exception) as e: # e.g. missing secrets, or API request failed
+                msg, = e.args
+                print(msg + '\n\n')
                 movie_ratings = []
         else:
             movie_ratings = []

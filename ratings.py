@@ -2,11 +2,12 @@ import requests
 
 try:
     from secret import API_KEY
-except(AttributeError, ImportError, ModuleNotFoundError): # missing secrets
-    print("\nCan't get ratings w/o an API key ! Running in simple mode.")
-    print('[ To fix: 1. Register @ http://omdbapi.com/apikey.aspx            ]')
-    print('[         2. Save key as variable API_KEY in cinematic/secret.py ]')
-    pass
+except(AttributeError, ImportError, ModuleNotFoundError) as e: # missing secrets
+    msg =  "Can't get ratings w/o an API key ! Running in simple mode."
+    msg += '\n[  To fix: 1. Register @ http://omdbapi.com/apikey.aspx            ]'
+    msg += '\n[          2. Save key as variable API_KEY in cinematic/secret.py  ]'
+    e.args = (msg,)
+    raise(e)
 
 
 def get_ratings_per_movie(movie_name):
@@ -31,7 +32,10 @@ def get_ratings_per_movie(movie_name):
         a, b = (float(x) for x in rating_str.replace('%', '/100').split('/'))
         return a / b
 
-    movie_json = requests.get(BASE_URL, PARAMS).json()
+    r = requests.get(BASE_URL, PARAMS)
+    assert r.ok, '[  Request to movie ratings API failed :(  ]'
+
+    movie_json = r.json()
     # d_ratings = {d['Source']: d['Value'] for d in movie_json['Ratings']}
     # d_ratings = {d['Source']: rating2float(d['Value'])
 
