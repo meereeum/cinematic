@@ -174,13 +174,13 @@ def get_movies_metrograph(theater, date):
     movie_formats = [specs.text.split(' / ')[-1] for specs in
                      soup('span', class_='specs')]
 
-    # filter movies with no future times
-    movie_names, movie_times = filter_movies(movie_names, movie_times)
-
     # annotate with format
     movie_times = [(times if fmt == 'DCP' or not times or not fmt else
                     times + ['[ {} ]'.format(fmt)])
                    for times, fmt in zip(movie_times, movie_formats)]
+
+    # filter movies with no future times
+    movie_names, movie_times = filter_movies(movie_names, movie_times)
 
     return movie_names, movie_times
 
@@ -691,7 +691,6 @@ def get_movies_coolidge(theater, date):
          m('span', class_='showtime-ticket__time')] for m in movies]
 
     movie_times = filter_past(movie_datetimes)
-    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     PATTERN = re.compile('^film-program__title')
     is_relevant = lambda s: s.endswith('mm')
@@ -703,6 +702,8 @@ def get_movies_coolidge(theater, date):
     movie_times = [(times if not times or not fmt else
                     times + ['[ {} ]'.format(fmt)])
                    for times, fmt in zip(movie_times, movie_formats)]
+
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     return movie_names, movie_times
 
@@ -745,7 +746,6 @@ def get_movies_brattle(theater, date):
         for m in relevant_movies]
 
     movie_times = filter_past(movie_datetimes)
-    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     PATTERN1 = re.compile('^[0-9:]*((p|a)m)?')                  # time only
     PATTERN2 = re.compile('^[^a-z0-9]*(.*[a-z0-9])[^a-z0-9]*$') # string format only (e.g. no parens)
@@ -766,6 +766,8 @@ def get_movies_brattle(theater, date):
     movie_times = [(times if not times or not fmt else
                     times + ['[ {} ]'.format(fmt)])
                    for times, fmt in zip(movie_times, movie_formats)]
+
+    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     return movie_names, movie_times
 
