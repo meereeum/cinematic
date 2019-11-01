@@ -189,6 +189,14 @@ if __name__ == '__main__':
     if need_ratings:
         d_cached = {}
 
+        try:
+            from ratings import get_ratings
+        except(Exception) as e: # e.g. missing secrets
+            msg, = e.args
+            print(msg + '\n\n')
+
+            need_ratings = False
+
     for theater in theaters:
         print()
 
@@ -196,11 +204,12 @@ if __name__ == '__main__':
 
         if need_ratings:
             try:
-                from ratings import get_ratings
                 movie_ratings, d_cached = get_ratings(movie_names, d_cached)
-            except(Exception) as e: # e.g. missing secrets, or API request failed
+
+            except(Exception) as e: # e.g. API request failed
                 msg, = e.args
                 print(msg + '\n\n')
+
                 movie_ratings = []
         else:
             movie_ratings = []

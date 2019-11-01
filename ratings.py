@@ -3,7 +3,7 @@ import requests
 try:
     from secret import API_KEY
 except(AttributeError, ImportError, ModuleNotFoundError) as e: # missing secrets
-    msg =  "Can't get ratings w/o an API key ! Running in simple mode."
+    msg =  "\nCan't get ratings w/o an API key ! Running in simple mode."
     msg += '\n[  To fix: 1. Register @ http://omdbapi.com/apikey.aspx            ]'
     msg += '\n[          2. Save key as variable API_KEY in cinematic/secret.py  ]'
     e.args = (msg,)
