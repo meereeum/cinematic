@@ -87,7 +87,8 @@ def combine_times(movie_names, movie_times):
 
     movie_names, movie_times = zip(
         *[(k, list(chain.from_iterable(g))) for k,g in groupby_transform(
-            zip(movie_names, movie_times), itemgetter(0), itemgetter(1))])
+            sorted(zip(movie_names, movie_times)), itemgetter(0),   # group by name
+                                                   itemgetter(1))]) # output grouped times
 
     return list(movie_names), list(movie_times)
 
