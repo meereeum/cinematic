@@ -539,11 +539,23 @@ def get_movies_quad(theater, date):
             if convert_date(d.h1.text) == date]
 
     movie_names = [movie.text for movie in day('h4')]
-    movie_datetimes = [[DATETIME_SEP.join((date, time.text.replace('.', ':')))
-                        for time in movie('li')]
-                       for movie in day('div', class_='single-listing')]
 
+    movies = day('div', class_='single-listing')
+
+    PATTERN = re.compile('^time')
+    movie_datetimes = [[DATETIME_SEP.join((date, time.text.replace('.', ':')))
+                        for time in m('li', class_=PATTERN)] for m in movies]
     movie_times = filter_past(movie_datetimes)
+
+    ANTIPATTERN = re.compile('^[^(time)]') # non-showtime `li`s
+    movie_formats = [[fmt.text for fmt in m('li', class_=ANTIPATTERN)]
+                     for m in movies]
+
+    # annotate with formats
+    movie_times = [(times if not times or not fmt else
+                    times + ['[ {} ]'.format(','.join(fmt))])
+                   for times, fmt in zip(movie_times, movie_formats)]
+
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     return movie_names, movie_times
