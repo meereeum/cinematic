@@ -428,7 +428,8 @@ def get_movies_alamo(theater, date):
 
     # TODO print sold-out times as xed-out ?
     movie_times = [flatten([flatten([
-        ['{}m'.format(sesh['SessionTime']) # e.g. p -> pm
+        ['{}m'.format((sesh['SessionTime'].lower() # e.g. p -> pm
+                                          .replace('noon', '12:00p')))
          for sesh in f['Sessions'] if (sesh['SessionStatus'] != 'soldout' and # `onsale` only
                                        sesh['SessionStatus'] != 'past')]
         for f in series['Formats'] # format doesn't seem to mean anything here - e.g. 70mm still coded as "Digital"
