@@ -426,6 +426,14 @@ def get_movies_alamo(theater, date):
 
     movie_names = [movie['FilmName'] for movie in movies]
 
+    # extract format from name, if any
+    PATTERN = re.compile('in ((35|70)mm)$', re.I)
+    def extract_fmt(m):
+        m, *fmt = re.split(PATTERN, m)[:2] # only name and (35|70)mm, if any
+        return m, ''.join(fmt).lower() # (cleaned) movie name, movie fmt
+
+    movie_names, movie_formats = zip(*(extract_fmt(m) for m in movie_names))
+
     # TODO print sold-out times as xed-out ?
     movie_times = [flatten([flatten([
         ['{}m'.format((sesh['SessionTime'].lower() # e.g. p -> pm
@@ -434,6 +442,11 @@ def get_movies_alamo(theater, date):
                                        sesh['SessionStatus'] != 'past')]
         for f in series['Formats'] # format doesn't seem to mean anything here - e.g. 70mm still coded as "Digital"
         ]) for series in movie['Series']]) for movie in movies]
+
+    # annotate with formats
+    movie_times = [(times if not times or not fmt else
+                    times + ['[ {} ]'.format(fmt)])
+                   for times, fmt in zip(movie_times, movie_formats)]
 
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
@@ -613,6 +626,20 @@ def get_movies_village_east_or_angelika(theater, date):
                        for times in soup('div', class_="showtimes-wrapper")]
 
     movie_times = filter_past(movie_datetimes)
+
+    # extract format from name, if any
+    PATTERN = re.compile('in ((35|70)mm)$', re.I)
+    def extract_fmt(m):
+        m, *fmt = re.split(PATTERN, m)[:2] # only name and (35|70)mm, if any
+        return m, ''.join(fmt).lower() # (cleaned) movie name, movie fmt
+
+    movie_names, movie_formats = zip(*(extract_fmt(m) for m in movie_names))
+
+    # annotate with format
+    movie_times = [(times if not times or not fmt else
+                    times + ['[ {} ]'.format(fmt)])
+                   for times, fmt in zip(movie_times, movie_formats)]
+
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     return movie_names, movie_times
