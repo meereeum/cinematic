@@ -44,6 +44,7 @@ def get_movies(theater, date, **kwargs):
         loews_jersey_theater=get_movies_loews_theater,
         lincoln_center=get_movies_filmlinc,
         metrograph=get_movies_metrograph,
+        moma=get_movies_moma,
         museum_of_the_moving_image=get_movies_momi,
         nitehawk=get_movies_nitehawk,
         nitehawk_prospect_park=get_movies_nitehawk,

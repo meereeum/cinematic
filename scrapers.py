@@ -684,6 +684,50 @@ def get_movies_anthology(theater, date):
     return movie_names, movie_times
 
 
+def get_movies_moma(theater, date):
+    """Get movie names and times from Museum of Modern Arts's website
+
+    :theater: str
+    :date: str (yyyy-mm-dd) (default: today)
+    :returns: (list of movie names, list of lists of movie times)
+    """
+    BASE_URL = 'https://www.moma.org/calendar/?utf8=%E2%9C%93&happening_filter=Films&date={}&location=both'
+
+    soup = soup_me(BASE_URL.format(date))
+
+    relevant_movies = [
+        m for m in soup('div', class_='calendar-tile calendar-tile--tall-image')
+        if date == convert_date((m.find('div', class_='center balance-text').text
+                                  .replace(u'\xa0', ' ') # &nbsp; -> " "
+                                  .split(', ')[1]))      # extract month & day from full datetime
+    ]
+
+    nested_movie_names = [ # list per showing.. some have multiple films
+        [m.text for m in ms.h3('em')] if ms.h3('em') else [ms.h3.text]
+        for ms in relevant_movies
+    ]
+    movie_names = [ms[-1] for ms in nested_movie_names] # main attraction is the last film
+
+    movie_formats = ['+ {}'.format(','.join(ms[:-1])) if len(ms) > 1 else ''
+                     for ms in nested_movie_names]
+
+    movie_datetimes = [
+        (dparser.parse(m.find('div', class_='center balance-text').text)
+                .strftime(DATETIME_SEP.join(('%Y-%m-%d', '%l:%M%P')))) # yyyy-mm-dd @ hh:mm {a,p}m
+        for m in relevant_movies
+    ]
+    movie_times = filter_past(movie_datetimes)
+
+    # annotate with format
+    movie_times = [(times if not times or not fmt else
+                    times + [f'[ {fmt} ]'])
+                   for times, fmt in zip(movie_times, movie_formats)]
+
+    movie_names, movie_times = filter_movies(movie_names, movie_times)
+
+    return movie_names, movie_times
+
+
 def get_movies_momi(theater, date):
     """Get movie names and times from Museum of the Moving Image's website
 
