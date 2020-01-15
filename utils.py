@@ -143,7 +143,10 @@ def index_into_days(days, date=None):
         assert (date - dparser.parse(days[iday])).days % 7 == 0 #, '{} != week multiple of {}'.format(days[iday], date)
     except(AssertionError):
         # then, fall back to direct indexing
-        iday = [dparser.parse(day) for day in days].index(date)
+        try:
+            iday = [dparser.parse(day) for day in days].index(date)
+        except(ValueError): # date not in days
+            raise(AssertionError)
 
     return iday
 
