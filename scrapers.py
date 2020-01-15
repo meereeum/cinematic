@@ -1052,13 +1052,28 @@ def get_movies_nitehawk(theater, date):
 
     movie_names = [movie.text for movie in soup('div', class_='show-title')]
 
+    # extract format from name, if any
+    PATTERN = re.compile(' \(.*(DCP|(35|70)mm)\)$', re.I)
+    def extract_fmt(m):
+        m, *fmt = re.split(PATTERN, m)[:2] # only name and DCP / (35|70)mm, if any
+        return m, ''.join(fmt).lower() # (cleaned) movie name, movie fmt
+
+    movie_names, movie_formats = zip(*(extract_fmt(m) for m in movie_names))
+
     movie_datetimes = [
         [DATETIME_SEP.join((date, clean_time(t.text.strip()))) # ignore any junk after {a,p}m
         for t in times('a', class_='showtime')]
-        for times in soup('div', class_='showtimes-container clearfix')]
-
+        for times in soup('div', class_='showtimes-container clearfix')
+    ]
     movie_times = filter_past(movie_datetimes)
-    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    # annotate with format
+    movie_times = [(times if fmt == 'dcp' or not times or not fmt else
+                    times + [f'[ {fmt} ]'])
+                   for times, fmt in zip(movie_times, movie_formats)]
+
+    # movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+    movie_names, movie_times = filter_movies(movie_names, movie_times)
 
     return movie_names, movie_times
 
