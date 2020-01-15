@@ -29,6 +29,8 @@ def filter_movies(movie_names, movie_times):
     :movie_times: [[str], [str]]
     :returns: (list of movie names, list of lists of movie times)
     """
+    assert len(movie_names) == len(movie_times), f'{len(movie_names)} != {len(movie_times)}'
+
     is_empty = lambda lst: (all(map(is_empty, lst)) if isinstance(lst, list)
                             else False) # check if (nested) list is empty
 
@@ -79,8 +81,7 @@ def combine_times(movie_names, movie_times):
     :movie_times: [[str], [str]]
     :returns: (list of movie names, list of lists of movie times)
     """
-    assert len(movie_names) == len(movie_times), '{} != {}'.format(
-        movie_name, movie_times)
+    assert len(movie_names) == len(movie_times), f'{len(movie_names)} != {len(movie_times)}'
 
     if not movie_names:
         return [], []

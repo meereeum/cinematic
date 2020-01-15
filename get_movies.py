@@ -92,7 +92,7 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
     :sorted_: sort movies by descending rating ?
     """
     if not movie_names: # search found no movies
-        print('skipping {}...'.format(theater))
+        print(f'skipping {theater}...')
         return
 
     SPACER = 2
@@ -117,10 +117,7 @@ def print_movies(theater, movie_names, movie_times, movie_ratings=[], sorted_=Fa
         time_str = re.sub(PATTERN, '  [', ', '.join(('{:>7}'.format(t) # reformat movie type
                                                      for t in times))) # & align time spacing
 
-        return '{}{:{}}{:^{}}{}'.format(rating_str,
-                                        name, col_space,
-                                        SEP_CHAR, SPACER * 2 + len(SEP_CHAR),
-                                        time_str)
+        return f'{rating_str}{name:{col_space}}{SEP_CHAR:^{SPACER * 2 + len(SEP_CHAR)}}{time_str}'
 
     with_rating = (movie_ratings != [])
     sorted_ = sorted_ and with_rating

@@ -29,7 +29,7 @@ def get_movies_google(theater, date, *args, **kwargs):
     BASE_URL = 'https://www.google.com/search'
 
     PARAMS = {
-        'q': safe_encode('showtimes', '"{}"'.format(theater), fdate),
+        'q': safe_encode('showtimes', f'"{theater}"', fdate),
         'ie': 'utf-8',
         'client': 'firefox-b-1-e'
     }
@@ -51,7 +51,7 @@ def get_movies_google(theater, date, *args, **kwargs):
 
         # check date
         date_found = relevant_div.attrs['data-date']
-        assert convert_date(date_found) == date, '{} != {}'.format(date_found, date)
+        assert convert_date(date_found) == date, f'{date_found} != {date}'
 
         movies = relevant_div('div', {'data-movie-name': True})
 
@@ -78,7 +78,7 @@ def get_movies_google(theater, date, *args, **kwargs):
 
     # annotate with format
     movie_times = [(times if fmt == 'Standard' or not times or not fmt else
-                    times + ['[ {} ]'.format(fmt)])
+                    times + [f'[ {fmt} ]'])
                    for times, fmt in zip(flatten(movie_times),
                                          flatten(movie_formats))]
 
@@ -176,7 +176,7 @@ def get_movies_metrograph(theater, date):
 
     # annotate with format
     movie_times = [(times if fmt == 'DCP' or not times or not fmt else
-                    times + ['[ {} ]'.format(fmt)])
+                    times + [f'[ {fmt} ]'])
                    for times, fmt in zip(movie_times, movie_formats)]
 
     # filter movies with no future times
@@ -223,9 +223,8 @@ def get_movies_film_noir(theater, date):
     soup = soup_me(BASE_URL)
 
     date = dparser.parse(date)
-    movie_divs = soup('a', class_='eventlist-title-link',
-                      href=re.compile('/program/{}/{}/{}/'.format(
-                          date.year, date.month, date.day))) # no zero-padding
+    movie_divs = soup('a', class_='eventlist-title-link', href=re.compile(
+        f'/program/{date.year}/{date.month}/{date.day}/')) # no zero-padding
     movie_names = [movie_div.text for movie_div in movie_divs]
 
     # get times filtered by past
@@ -298,7 +297,7 @@ def get_movies_rowhouse(theater, date):
     movies = soup('div', class_='showtimes-description')
 
     movie_names = [m.h2.text.strip() for m in movies]
-    movie_datetimes = [[DATETIME_SEP.format(date, time.text.strip())
+    movie_datetimes = [[DATETIME_SEP.join((date, time.text.strip()))
                         for time in m('a', class_='showtime')] for m in movies]
 
     movie_times = filter_past(movie_datetimes)
@@ -334,11 +333,12 @@ def get_movies_manor(theater, date):
     movies = djson['movies']
 
     movie_names = [m['movie_name'] for m in movies]
+
     movie_datetimes = [
         [(dparser.parse(show['date_time'])
-                 .strftime('%Y-%m-%d{}%l:%M%P'.format(DATETIME_SEP))) # yyyy-mm-dd @ hh:mm {a,p}m
-         for show in m['showtimes']] for m in movies]
-
+                 .strftime(DATETIME_SEP.join(('%Y-%m-%d', '%l:%M%P')))) # yyyy-mm-dd @ hh:mm {a,p}m
+         for show in m['showtimes']] for m in movies
+    ]
     movie_times = filter_past(movie_datetimes)
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
@@ -389,7 +389,7 @@ def get_movies_syndicated(theater, date):
     soup = soup_me(BASE_URL)
 
     movie_strs = [div.text.strip() for div in soup(
-        'div', id=re.compile('tribe-events-event-[0-9]*-{}'.format(date)))]
+        'div', id=re.compile(f'tribe-events-event-[0-9]*-{date}'))]
 
     matches = [re.search(' \([0-9:]* [ap]m\)', movie_str, re.I)
                for movie_str in movie_strs]
@@ -445,7 +445,7 @@ def get_movies_alamo(theater, date):
 
     # annotate with formats
     movie_times = [(times if not times or not fmt else
-                    times + ['[ {} ]'.format(fmt)])
+                    times + [f'[ {fmt} ]'])
                    for times, fmt in zip(movie_times, movie_formats)]
 
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
@@ -519,7 +519,7 @@ def get_movies_film_forum(theater, date):
                                  .find_all('li'))]
     iday = index_into_days(days, date=date)
 
-    day = soup.find('div', id='tabs-{}'.format(iday))
+    day = soup.find('div', id=f'tabs-{iday}')
 
     movie_names = [
         ''.join((txt for txt in mdiv.contents if isinstance(txt, str))).strip() # ignore txt in extra <span>s
@@ -590,7 +590,7 @@ def get_movies_cinema_village(theater, date):
             for day in soup('a', {'data-toggle': 'tab'})]
     iday = index_into_days(days, date=date)
 
-    day = soup.find('div', id='tab_default_{}'.format(iday))
+    day = soup.find('div', id=f'tab_default_{iday}')
 
     movie_names = [movie.text for movie in day('a')]
     movie_datetimes = [[DATETIME_SEP.join((date, time.text))
@@ -637,7 +637,7 @@ def get_movies_village_east_or_angelika(theater, date):
 
     # annotate with format
     movie_times = [(times if not times or not fmt else
-                    times + ['[ {} ]'.format(fmt)])
+                    times + [f'[ {fmt} ]'])
                    for times, fmt in zip(movie_times, movie_formats)]
 
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
@@ -702,8 +702,8 @@ def get_movies_momi(theater, date):
 
     movie_datetimes = [
         [DATETIME_SEP.join((date, (m.em.text.split(' | ')[0]
-                                            .replace('.',''))))] for m in movies]
-
+                                            .replace('.',''))))] for m in movies
+    ]
     movie_times = filter_past(movie_datetimes)
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
@@ -728,19 +728,20 @@ def get_movies_coolidge(theater, date):
 
     movie_datetimes = [
         [DATETIME_SEP.join((date, time.text)) for time in
-         m('span', class_='showtime-ticket__time')] for m in movies]
-
+         m('span', class_='showtime-ticket__time')] for m in movies
+    ]
     movie_times = filter_past(movie_datetimes)
 
     PATTERN = re.compile('^film-program__title')
     is_relevant = lambda s: s.endswith('mm')
     movie_formats = [
         ', '.join((tag.text for tag in m('span', class_=PATTERN)
-                   if is_relevant(tag.text))) for m in movies]
+                   if is_relevant(tag.text))) for m in movies
+    ]
 
     # annotate with format
     movie_times = [(times if not times or not fmt else
-                    times + ['[ {} ]'.format(fmt)])
+                    times + [f'[ {fmt} ]'])
                    for times, fmt in zip(movie_times, movie_formats)]
 
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
@@ -777,7 +778,7 @@ def get_movies_brattle(theater, date):
     # only last time is labeled explicitly -- assume rest are p.m. (unless already annotated)
     DEFAULT_TIME_OF_DAY = 'pm'
     PATTERN1 = re.compile('^([0-9: apm\.]*)', re.I)                         # capture time
-    PATTERN2 = re.compile('([apm\.]+) ?{}'.format(DEFAULT_TIME_OF_DAY), re.I) # rm extraneous
+    PATTERN2 = re.compile(f'([apm\.]+) ?{DEFAULT_TIME_OF_DAY}', re.I) # rm extraneous
     movie_datetimes = [
         [DATETIME_SEP.join((date, re.sub(PATTERN2, r'\1',                 # 2. strip extraneous default (i.e. if already labeled)
                                          re.sub(PATTERN1, r'\1{}'.format( # 1. pad with default time just in case
@@ -798,13 +799,13 @@ def get_movies_brattle(theater, date):
     movie_times = [[re.match(PATTERN1, t).group(0) for t in ts]
                    for ts in movie_times]
     # before possibly re-annotating (per-showtime)
-    movie_times = [[t if not fmt else t + ' [ {} ]'.format(fmt)
+    movie_times = [[t if not fmt else t + f' [ {fmt} ]'
                     for t, fmt in zip(ts, fmts)]
                    for ts, fmts in zip(movie_times, movie_formats_extra)]
 
     # annotate with (per-movie) format
     movie_times = [(times if not times or not fmt else
-                    times + ['[ {} ]'.format(fmt)])
+                    times + [f'[ {fmt} ]'])
                    for times, fmt in zip(movie_times, movie_formats)]
 
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
@@ -887,15 +888,28 @@ def get_movies_somerville(theater, date):
 
     movie_names = [m.shortname.text for m in movies] # /or/ m.find('name').text
 
+    PATTERN = re.compile(' ((35|70)mm)$', re.I)
+    def extract_fmt(m):
+        m, *fmt = re.split(PATTERN, m)[:2] # only name and (35|70)mm, if any
+        return m, ''.join(fmt).lower() # (cleaned) movie name, movie fmt
+
+    movie_names, movie_formats = zip(*(extract_fmt(m) for m in movie_names))
+
     convert = lambda date: date[-4:] + date[:-4] # mmddyyyy -> yyyymmdd
 
     movie_datetimes = [
-        [(dparser.parse(' '.join((convert(d.text), t.text)))          # yyyymmdd hhmm ->
-                 .strftime('%Y-%m-%d{}%l:%M%P'.format(DATETIME_SEP))) # yyyy-mm-dd @ hh:mm {a,p}m
-        for d, t in zip(m('date'), m('time'))
-        if d.text == convert_date(date, fmt_out='%m%d%Y')] for m in movies]
-
+        [(dparser.parse(' '.join((convert(d.text), t.text)))            # yyyymmdd hhmm ->
+                 .strftime(DATETIME_SEP.join(('%Y-%m-%d', '%l:%M%P')))) # yyyy-mm-dd @ hh:mm {a,p}m
+         for d, t in zip(m('date'), m('time'))
+         if d.text == convert_date(date, fmt_out='%m%d%Y')] for m in movies
+    ]
     movie_times = filter_past(movie_datetimes)
+
+    # annotate with formats
+    movie_times = [(times if not times or not fmt else
+                    times + [f'[ {fmt} ]'])
+                   for times, fmt in zip(movie_times, movie_formats)]
+
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
     return movie_names, movie_times
@@ -967,10 +981,10 @@ def get_movies_amc(theater, date):
     # annotate with format
     movie_formats = [[fmt.text for fmt in m('h4')] for m in movies]
     movie_times = [(times if fmt == 'Digital' or not times else
-                    times + ['[ {} ]'.format(fmt)])
+                    times + [f'[ {fmt} ]'])
                    for times, fmt in zip(movie_times, flatten(movie_formats))]
 
-    #movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times)) # TODO combine does not know formats
+    # movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times)) # TODO combine does not know formats
     movie_names, movie_times = filter_movies(movie_names, movie_times)
 
     return movie_names, movie_times
@@ -1021,10 +1035,10 @@ def get_movies_filmlinc(theater, date):
     movie_names = [movie['title'] for movie in djson]
 
     movie_datetimes = [
-        (datetime.fromtimestamp(movie['start'] / 1000)                # epoch (in ms) ->
-                 .strftime('%Y-%m-%d{}%l:%M%P'.format(DATETIME_SEP))) # yyyy-mm-dd @ hh:mm {a,p}m
-        for movie in djson]
-
+        (datetime.fromtimestamp(movie['start'] / 1000)                  # epoch (in ms) ->
+                 .strftime(DATETIME_SEP.join(('%Y-%m-%d', '%l:%M%P')))) # yyyy-mm-dd @ hh:mm {a,p}m
+        for movie in djson
+    ]
     movie_times = filter_past(movie_datetimes)
     movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
 
