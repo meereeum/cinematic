@@ -391,6 +391,9 @@ def get_movies_syndicated(theater, date):
     movie_strs = [div.text.strip() for div in soup(
         'div', id=re.compile(f'tribe-events-event-[0-9]*-{date}'))]
 
+    if movie_strs[0].lower() == 'closed for private event':
+        return [], []
+
     matches = [re.search(' \([0-9:]* [ap]m\)', movie_str, re.I)
                for movie_str in movie_strs]
 
@@ -1061,7 +1064,10 @@ def get_movies_nitehawk(theater, date):
     movie_names, movie_formats = zip(*(extract_fmt(m) for m in movie_names))
 
     movie_datetimes = [
-        [DATETIME_SEP.join((date, clean_time(t.text.strip()))) # ignore any junk after {a,p}m
+        [DATETIME_SEP.join((date, clean_time((t.contents[0] # ignore any junk after {a,p}m
+                                               .strip()
+                                               .lower()
+                                               .replace('midnite', '11:59pm'))))) # else, wld be next day
         for t in times('a', class_='showtime')]
         for times in soup('div', class_='showtimes-container clearfix')
     ]
