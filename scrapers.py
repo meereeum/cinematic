@@ -467,9 +467,12 @@ def get_movies_ifc(theater, date):
 
     soup = soup_me(BASE_URL)
 
-    day, = [day for day in soup('div', class_=re.compile('^daily-schedule'))
-            if day.h3.text != 'Coming Soon'
-            and convert_date(day.h3.text) == date]
+    try:
+        day, = [day for day in soup('div', class_=re.compile('^daily-schedule'))
+                if day.h3.text != 'Coming Soon'
+                and convert_date(day.h3.text) == date]
+    except(ValueError): # no matching date listed yet
+        return [], []
 
     movie_divs = day('div')
 
@@ -552,8 +555,11 @@ def get_movies_quad(theater, date):
 
     soup = soup_me(BASE_URL)
 
-    day, = [d for d in soup('div', class_='now-single-day')
-            if convert_date(d.h1.text) == date]
+    try:
+        day, = [d for d in soup('div', class_='now-single-day')
+                if convert_date(d.h1.text) == date]
+    except(ValueError): # no matching date listed yet
+        return [], []
 
     movie_names = [movie.text for movie in day('h4')]
 
@@ -714,8 +720,10 @@ def get_movies_moma(theater, date):
     movie_formats = ['+ {}'.format(','.join(ms[:-1])) if len(ms) > 1 else ''
                      for ms in nested_movie_names]
 
+    PATTERN = re.compile('–[0-9]*:?[0-9]*')
     movie_datetimes = [
-        (dparser.parse(m.find('div', class_='center balance-text').text)
+        (dparser.parse(re.sub(PATTERN, '', # remove any time ranges
+                              m.find('div', class_='center balance-text').text))
                 .strftime(DATETIME_SEP.join(('%Y-%m-%d', '%l:%M%P')))) # yyyy-mm-dd @ hh:mm {a,p}m
         for m in relevant_movies
     ]
