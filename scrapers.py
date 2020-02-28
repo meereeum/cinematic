@@ -818,9 +818,15 @@ def get_movies_brattle(theater, date):
     relevant_movies = soup('div', class_=PATTERN)
 
     movie_names = [m.h2.text for m in relevant_movies]
-    movie_formats = [
-        ', '.join((tag.replace('tag-', '') for tag in m['class']
-                   if tag.startswith('tag-'))) for m in relevant_movies]
+    movie_formats_nested = [ # list of lists
+        [tag.replace('tag-', '') for tag in m['class']
+         if tag.startswith('tag-')] for m in relevant_movies
+    ]
+    movie_formats = [        # (filtered) list of strs
+        ', '.join((fmt for fmt in fmts
+                   if not fmt.lower() == name.lower().replace(' ', ''))) # sometimes, tags are just the movie name..
+        for fmts, name in zip(movie_formats_nested, movie_names)
+    ]
 
     # only last time is labeled explicitly -- assume rest are p.m. (unless already annotated)
     DEFAULT_TIME_OF_DAY = 'pm'
@@ -831,8 +837,8 @@ def get_movies_brattle(theater, date):
                                          re.sub(PATTERN1, r'\1{}'.format( # 1. pad with default time just in case
                                              DEFAULT_TIME_OF_DAY), time))))
         for time in m.li.text.replace('at ', '').split(',')]
-        for m in relevant_movies]
-
+        for m in relevant_movies
+    ]
     movie_times = filter_past(movie_datetimes)
 
     PATTERN1 = re.compile('^[0-9:]*((p|a)m)?')                  # time only
