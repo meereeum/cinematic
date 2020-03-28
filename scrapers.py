@@ -6,7 +6,7 @@ from time import sleep
 
 from bs4 import element
 from dateutil import parser as dparser
-from more_itertools import split_before
+from more_itertools import first, split_before
 
 from CLIppy import (AttrDict, compose_query, convert_date, flatten, safe_encode,
                     soup_me, json_me)
@@ -391,7 +391,7 @@ def get_movies_syndicated(theater, date):
     movie_strs = [div.text.strip() for div in soup(
         'div', id=re.compile(f'tribe-events-event-[0-9]*-{date}'))]
 
-    if movie_strs[0].lower() == 'closed for private event':
+    if not movie_strs or movie_strs[0].lower() == 'closed for private event':
         return [], []
 
     matches = [re.search(' \([0-9:]* [ap]m\)', movie_str, re.I)
@@ -425,7 +425,10 @@ def get_movies_alamo(theater, date):
     day, *_ = flatten([[d for d in week['Days'] if d['Date'].startswith(date)]
                        for week in flatten(month['Weeks'] for month in
                                            djson['Calendar']['Cinemas'][0]['Months'])])
-    movies = day['Films']
+    try:
+        movies = day['Films']
+    except(KeyError):
+        return [], []
 
     movie_names = [movie['FilmName'] for movie in movies]
 
@@ -630,7 +633,20 @@ def get_movies_village_east_or_angelika(theater, date):
 
     movie_names = [movie.text for movie in soup('h4', class_='name')]
 
-    movie_datetimes = [[DATETIME_SEP.join((date, time.attrs['value'])) for time in
+    movie_statuses = [first((cls for cls in d['class']
+                             if cls.startswith('status')))
+                      for d in soup('div', class_=re.compile('^status'))]
+
+    assert len(movie_names) == len(movie_statuses), f'{len(movie_names)} != {len(movie_statuses)}'
+
+    # filter for currently playing only
+    movie_names = [m for m, status in zip(movie_names, movie_statuses)
+                   if not status.endswith('coming_soon')]
+
+    if not movie_names:
+        return [], []
+
+    movie_datetimes = [[DATETIME_SEP.join((date, time['value'])) for time in
                         times('input', class_='showtime reserved-seating')]
                        for times in soup('div', class_="showtimes-wrapper")]
 
@@ -825,10 +841,13 @@ def get_movies_brattle(theater, date):
     PATTERN = re.compile('y{} m{} d{}'.format(*date.split('-')))
     relevant_movies = soup('div', class_=PATTERN)
 
+    VIRTUAL = 'category-virtual-programs'
+
     movie_names = [m.h2.text for m in relevant_movies]
+
     movie_formats_nested = [ # list of lists
         [tag.replace('tag-', '') for tag in m['class']
-         if tag.startswith('tag-')] for m in relevant_movies
+         if tag.startswith('tag-') or tag == VIRTUAL] for m in relevant_movies
     ]
     movie_formats = [        # (filtered) list of strs
         ', '.join((fmt for fmt in fmts
@@ -836,40 +855,51 @@ def get_movies_brattle(theater, date):
         for fmts, name in zip(movie_formats_nested, movie_names)
     ]
 
-    # only last time is labeled explicitly -- assume rest are p.m. (unless already annotated)
-    DEFAULT_TIME_OF_DAY = 'pm'
-    PATTERN1 = re.compile('^([0-9: apm\.]*)', re.I)                         # capture time
-    PATTERN2 = re.compile(f'([apm\.]+) ?{DEFAULT_TIME_OF_DAY}', re.I) # rm extraneous
-    movie_datetimes = [
-        [DATETIME_SEP.join((date, re.sub(PATTERN2, r'\1',                 # 2. strip extraneous default (i.e. if already labeled)
-                                         re.sub(PATTERN1, r'\1{}'.format( # 1. pad with default time just in case
-                                             DEFAULT_TIME_OF_DAY), time))))
-        for time in m.li.text.replace('at ', '').split(',')]
-        for m in relevant_movies
-    ]
-    movie_times = filter_past(movie_datetimes)
+    relevant_movies, movie_formats, movie_names = zip( # filter `hidden` (e.g. cancelled series)
+        *((m, fmt, name) for m, fmt, name in zip(relevant_movies, movie_formats,
+                                                 movie_names)
+          if not 'hidden' in fmt)
+    )
 
-    PATTERN1 = re.compile('^[0-9:]*((p|a)m)?')                  # time only
-    PATTERN2 = re.compile('^[^a-z0-9]*(.*[a-z0-9])[^a-z0-9]*$') # string format only (e.g. no parens)
+    if VIRTUAL not in movie_formats:
 
-    # capture extra showing info
-    movie_formats_extra = [[re.sub(PATTERN2, r'\1', re.sub(PATTERN1, '', t)) # extract dirty format, then clean
-                           for t in ts] for ts in movie_times]
+        # only last time is labeled explicitly -- assume rest are p.m. (unless already annotated)
+        DEFAULT_TIME_OF_DAY = 'pm'
+        PATTERN1 = re.compile('^([0-9: apm\.]*)', re.I)                         # capture time
+        PATTERN2 = re.compile(f'([apm\.]+) ?{DEFAULT_TIME_OF_DAY}', re.I) # rm extraneous
+        movie_datetimes = [
+            [DATETIME_SEP.join((date, re.sub(PATTERN2, r'\1',                 # 2. strip extraneous default (i.e. if already labeled)
+                                             re.sub(PATTERN1, r'\1{}'.format( # 1. pad with default time just in case
+                                                 DEFAULT_TIME_OF_DAY), time))))
+            for time in m.li.text.replace('at ', '').split(',')]
+            for m in relevant_movies
+        ]
+        movie_times = filter_past(movie_datetimes)
 
-    # .. & further clean times
-    movie_times = [[re.match(PATTERN1, t).group(0) for t in ts]
-                   for ts in movie_times]
-    # before possibly re-annotating (per-showtime)
-    movie_times = [[t if not fmt else t + f' [ {fmt} ]'
-                    for t, fmt in zip(ts, fmts)]
-                   for ts, fmts in zip(movie_times, movie_formats_extra)]
+        PATTERN1 = re.compile('^[0-9:]*((p|a)m)?')                  # time only
+        PATTERN2 = re.compile('^[^a-z0-9]*(.*[a-z0-9])[^a-z0-9]*$') # string format only (e.g. no parens)
 
-    # annotate with (per-movie) format
-    movie_times = [(times if not times or not fmt else
-                    times + [f'[ {fmt} ]'])
-                   for times, fmt in zip(movie_times, movie_formats)]
+        # capture extra showing info
+        movie_formats_extra = [[re.sub(PATTERN2, r'\1', re.sub(PATTERN1, '', t)) # extract dirty format, then clean
+                               for t in ts] for ts in movie_times]
 
-    movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+        # .. & further clean times
+        movie_times = [[re.match(PATTERN1, t).group(0) for t in ts]
+                       for ts in movie_times]
+        # before possibly re-annotating (per-showtime)
+        movie_times = [[t if not fmt else t + f' [ {fmt} ]'
+                        for t, fmt in zip(ts, fmts)]
+                       for ts, fmts in zip(movie_times, movie_formats_extra)]
+
+        # annotate with (per-movie) format
+        movie_times = [(times if not times or not fmt else
+                        times + [f'[ {fmt} ]'])
+                       for times, fmt in zip(movie_times, movie_formats)]
+
+        movie_names, movie_times = combine_times(*filter_movies(movie_names, movie_times))
+
+    else: # strange days -- N.B. if one virtual, assume all virtual (for now)
+        movie_times = [['virtual'] for _ in movie_names]
 
     return movie_names, movie_times
 
@@ -1068,6 +1098,9 @@ def get_movies_nitehawk(theater, date):
     soup = soup_me(BASE_URL.format(D_THEATERS[theater.lower()], date))
 
     movie_names = [movie.text for movie in soup('div', class_='show-title')]
+
+    if not movie_names:
+        return [], []
 
     # extract format from name, if any
     PATTERN = re.compile(' \(.*(DCP|(35|70)mm)\)$', re.I)
